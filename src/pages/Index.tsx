@@ -1,12 +1,30 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { LiveLeaderboard } from "@/components/LiveLeaderboard";
+import { Button } from "@/components/ui/button";
+import { Settings } from "lucide-react";
+import { useState } from "react";
+import { AdminPanel } from "@/components/AdminPanel";
 
 const Index = () => {
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  if (showAdmin) {
+    return <AdminPanel onBack={() => setShowAdmin(false)} />;
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="relative">
+      <LiveLeaderboard />
+      
+      {/* Admin Access Button */}
+      <Button
+        onClick={() => setShowAdmin(true)}
+        className="fixed top-4 left-4 z-50 bg-card/80 backdrop-blur-sm hover:bg-card"
+        variant="outline"
+        size="sm"
+      >
+        <Settings className="w-4 h-4 mr-2" />
+        Admin
+      </Button>
     </div>
   );
 };

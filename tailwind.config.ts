@@ -52,6 +52,26 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// Camp Clash Brand Colors
+				camp: {
+					cyan: 'hsl(var(--camp-cyan))',
+					pink: 'hsl(var(--camp-pink))',
+					dark: 'hsl(var(--camp-dark))',
+					light: 'hsl(var(--camp-light))'
+				},
+				// Team Colors
+				team: {
+					blue: 'hsl(var(--team-blue))',
+					red: 'hsl(var(--team-red))',
+					green: 'hsl(var(--team-green))',
+					yellow: 'hsl(var(--team-yellow))',
+					purple: 'hsl(var(--team-purple))',
+					orange: 'hsl(var(--team-orange))',
+					pink: 'hsl(var(--team-pink))',
+					black: 'hsl(var(--team-black))',
+					grey: 'hsl(var(--team-grey))',
+					brown: 'hsl(var(--team-brown))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -62,6 +82,19 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				}
+			},
+			backgroundImage: {
+				'gradient-camp': 'var(--gradient-camp)',
+				'gradient-dark': 'var(--gradient-dark)',
+				'gradient-glow': 'var(--gradient-glow)'
+			},
+			boxShadow: {
+				'camp': 'var(--shadow-camp)',
+				'pink': 'var(--shadow-pink)',
+				'elevation': 'var(--shadow-elevation)'
+			},
+			transitionTimingFunction: {
+				'camp': 'var(--transition-camp)'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +117,32 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'count-up': {
+					from: {
+						transform: 'scale(0.8)',
+						opacity: '0'
+					},
+					to: {
+						transform: 'scale(1)',
+						opacity: '1'
+					}
+				},
+				'glow': {
+					'0%': {
+						boxShadow: '0 0 20px hsl(var(--camp-cyan) / 0.3)'
+					},
+					'100%': {
+						boxShadow: '0 0 40px hsl(var(--camp-cyan) / 0.8)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'count-up': 'count-up 2s ease-out',
+				'pulse-camp': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+				'glow': 'glow 3s ease-in-out infinite alternate'
 			}
 		}
 	},

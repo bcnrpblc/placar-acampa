@@ -8,35 +8,69 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Camp Clash Brand Colors */
+    --background: 0 0% 3%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary: Cyan brand color */
+    --primary: 190 100% 53%;
+    --primary-foreground: 0 0% 3%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary: Pink accent */
+    --secondary: 346 87% 50%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 190 100% 53%;
+    --accent-foreground: 0 0% 3%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 346 87% 50%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 190 100% 53%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Camp Clash Design System */
+    --camp-cyan: 190 100% 53%;
+    --camp-pink: 346 87% 50%;
+    --camp-dark: 0 0% 3%;
+    --camp-light: 0 0% 98%;
+    
+    /* Team Colors */
+    --team-blue: 217 91% 60%;
+    --team-red: 0 84% 60%;
+    --team-green: 142 76% 36%;
+    --team-yellow: 45 93% 47%;
+    --team-purple: 262 83% 58%;
+    --team-orange: 25 95% 53%;
+    --team-pink: 346 87% 50%;
+    --team-black: 220 13% 18%;
+    --team-grey: 220 9% 46%;
+    --team-brown: 30 67% 28%;
+
+    /* Gradients */
+    --gradient-camp: linear-gradient(135deg, hsl(var(--camp-cyan)), hsl(var(--camp-pink)));
+    --gradient-dark: linear-gradient(180deg, hsl(var(--camp-dark)), hsl(0 0% 8%));
+    --gradient-glow: radial-gradient(circle at 50% 0%, hsl(var(--camp-cyan) / 0.3), transparent 70%);
+
+    /* Shadows & Effects */
+    --shadow-camp: 0 0 30px hsl(var(--camp-cyan) / 0.5);
+    --shadow-pink: 0 0 30px hsl(var(--camp-pink) / 0.5);
+    --shadow-elevation: 0 10px 30px -10px hsl(0 0% 0% / 0.7);
+
+    /* Animations */
+    --transition-camp: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
 
