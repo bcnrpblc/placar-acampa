@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Undo2, Trophy, Users } from "lucide-react";
+import { ArrowLeft, Plus, Undo2, Trophy, Users, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { DayRevealSpectacle } from "./DayRevealSpectacle";
 
 interface Team {
   id: string;
@@ -45,6 +46,11 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   const [selectedGame, setSelectedGame] = useState("");
   const [points, setPoints] = useState("");
   const [reason, setReason] = useState("");
+  
+  // Day reveal state
+  const [showDayReveal, setShowDayReveal] = useState(false);
+  const [daySnapshot, setDaySnapshot] = useState(null);
+  const [revealLoading, setRevealLoading] = useState(false);
   
   const { toast } = useToast();
 
@@ -178,6 +184,60 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
     setLoading(false);
   };
 
+  const undoScore = async (entryId: string) => {
+    try {
+      const response = await supabase.functions.invoke('undo-score', {
+        body: { entry_id: entryId }
+      });
+
+      if (response.error) throw response.error;
+
+      toast({
+        title: "Score Undone",
+        description: "The score entry has been reversed",
+      });
+
+      fetchRecentEntries();
+    } catch (error) {
+      console.error('Error undoing score:', error);
+      toast({
+        title: "Error",
+        description: "Failed to undo score. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const revealDay = async () => {
+    setRevealLoading(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const response = await supabase.functions.invoke('reveal-day', {
+        body: { day: today }
+      });
+
+      if (response.error) throw response.error;
+
+      setDaySnapshot(response.data.snapshot);
+      setShowDayReveal(true);
+
+      toast({
+        title: "Day Revealed!",
+        description: "Daily scores have been locked and the reveal has started",
+      });
+
+    } catch (error) {
+      console.error('Error revealing day:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reveal day. Please try again.",
+        variant: "destructive"
+      });
+    }
+    setRevealLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-dark p-4">
       <div className="container mx-auto max-w-4xl">
@@ -194,6 +254,36 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
             <p className="text-muted-foreground">Judge Panel • Add Points & Manage Scores</p>
           </div>
         </div>
+
+        {/* Day Reveal Section */}
+        <Card className="bg-card/50 backdrop-blur-sm mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-yellow-500" />
+              Day Reveal
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Lock today's scores and reveal the day winner
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Warning: This action cannot be undone and will prevent further score additions for today
+                </p>
+              </div>
+              <Button 
+                onClick={revealDay}
+                disabled={revealLoading}
+                size="lg"
+                className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+              >
+                {revealLoading ? "Revealing..." : "🏆 REVEAL DAY"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Add Points Form */}
@@ -298,13 +388,25 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge variant={entry.points > 0 ? "default" : "destructive"}>
-                        {entry.points > 0 ? '+' : ''}{entry.points}
-                      </Badge>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(entry.created_at).toLocaleTimeString()}
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <Badge variant={entry.points > 0 ? "default" : "destructive"}>
+                          {entry.points > 0 ? '+' : ''}{entry.points}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(entry.created_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                      {!entry.reason?.includes('UNDO:') && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => undoScore(entry.id)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Undo2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -318,6 +420,13 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
           </Card>
         </div>
       </div>
+
+      {/* Day Reveal Spectacle Modal */}
+      <DayRevealSpectacle 
+        isOpen={showDayReveal}
+        onClose={() => setShowDayReveal(false)}
+        snapshot={daySnapshot}
+      />
     </div>
   );
 };
