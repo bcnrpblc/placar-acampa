@@ -41,9 +41,9 @@ All colors MUST be HSL.
 
     --radius: 0.75rem;
 
-    /* Camp Clash Design System */
-    --camp-cyan: 190 100% 53%;
-    --camp-pink: 346 87% 50%;
+    /* Camp Clash Design System - Updated for exact brand colors */
+    --camp-cyan: 190 100% 53%; /* #23dbf3 */
+    --camp-pink: 346 87% 50%; /* #ee1147 */
     --camp-dark: 0 0% 3%;
     --camp-light: 0 0% 98%;
     
