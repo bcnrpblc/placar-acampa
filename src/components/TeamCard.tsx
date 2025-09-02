@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Users, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
+import * as React from "react";
 
 export interface Team {
   id: string;
@@ -73,13 +74,18 @@ export const TeamCard = ({ team, rank, isLeader, previousPoints }: TeamCardProps
   const teamColorClass = getTeamColorClass(team.name);
 
   return (
-    <Card className={`
-      relative overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-elevation
-      ${isLeader ? 'ring-2 ring-camp-cyan shadow-camp animate-glow' : ''}
-      ${isAnimating ? 'animate-pulse-camp' : ''}
-      bg-gradient-to-br from-card via-card to-card/50
-      border-2 border-border hover:border-${teamColorClass}
-    `}>
+    <Card 
+      className={`
+        relative overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-elevation
+        ${isLeader ? 'animate-leader-glow' : ''}
+        ${isAnimating ? 'animate-pulse-camp' : ''}
+        bg-gradient-to-br from-card via-card to-card/50
+        border-2 border-border hover:border-${teamColorClass}
+      `}
+      style={{
+        '--leader-color': isLeader ? team.color : 'transparent'
+      } as React.CSSProperties}
+    >
       {/* Team Color Stripe - Removed */}
       
       {/* Rank Badge */}

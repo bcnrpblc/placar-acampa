@@ -73,19 +73,12 @@ All colors MUST be HSL.
     --transition-camp: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -126,6 +119,27 @@ All colors MUST be HSL.
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+}
+
+/* Leader Glow Animation */
+@keyframes leader-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px var(--leader-color, hsl(var(--camp-cyan))), 
+                0 0 40px var(--leader-color, hsl(var(--camp-cyan))),
+                0 0 60px var(--leader-color, hsl(var(--camp-cyan)));
+    border-color: var(--leader-color, hsl(var(--camp-cyan)));
+  }
+  50% { 
+    box-shadow: 0 0 10px var(--leader-color, hsl(var(--camp-cyan))), 
+                0 0 20px var(--leader-color, hsl(var(--camp-cyan))),
+                0 0 30px var(--leader-color, hsl(var(--camp-cyan)));
+    border-color: var(--leader-color, hsl(var(--camp-cyan)));
+  }
+}
+
+.animate-leader-glow {
+  animation: leader-glow 2s ease-in-out infinite;
+  border-width: 3px !important;
 }
 
 @layer base {
