@@ -21,6 +21,11 @@ interface Game {
   slug: string;
 }
 
+interface Player {
+  id: string;
+  name: string;
+}
+
 interface ScoreEntry {
   id: string;
   points: number;
@@ -42,6 +47,8 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   
   // Form state
   const [selectedTeam, setSelectedTeam] = useState("");
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [selectedPlayer, setSelectedPlayer] = useState("");
   const [selectedGame, setSelectedGame] = useState("");
   const [points, setPoints] = useState("");
   const [reason, setReason] = useState("");
@@ -55,6 +62,16 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
     fetchRecentEntries();
   }, []);
 
+  // Fetch players when team changes
+  useEffect(() => {
+    if (selectedTeam) {
+      fetchPlayersForTeam(selectedTeam);
+    } else {
+      setPlayers([]);
+      setSelectedPlayer("");
+    }
+  }, [selectedTeam]);
+
   const fetchTeams = async () => {
     const { data } = await supabase.from('teams').select('*').order('name');
     if (data) setTeams(data);
@@ -63,6 +80,18 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   const fetchGames = async () => {
     const { data } = await supabase.from('games').select('*').order('title');
     if (data) setGames(data);
+  };
+
+  const fetchPlayersForTeam = async (teamId: string) => {
+    setPlayers([]);
+    setSelectedPlayer("");
+    if (!teamId) return;
+    const { data } = await supabase
+      .from('players')
+      .select('id, name')
+      .eq('team_id', teamId)
+      .order('name');
+    if (data) setPlayers(data as Player[]);
   };
 
   const fetchRecentEntries = async () => {
@@ -83,10 +112,10 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   };
 
   const addPoints = async () => {
-    if (!selectedTeam || !points || !selectedGame) {
+    if (!selectedTeam || !selectedPlayer || !points || !selectedGame) {
       toast({
         title: "Missing Information",
-        description: "Please select team, game, and enter points",
+        description: "Please select team, participant, game, and enter points",
         variant: "destructive"
       });
       return;
@@ -125,6 +154,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
         .insert({
           round_id: roundId,
           team_id: selectedTeam,
+          player_id: selectedPlayer,
           points: parseInt(points),
           reason: reason || null
         });
@@ -227,6 +257,28 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                 </Select>
               </div>
 
+              {/* Participant Selection */}
+              <div>
+                <Label htmlFor="player-select">Select Participant</Label>
+                <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={players.length ? "Choose a participant..." : "No participants for this team"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {players.length === 0 && (
+                      <SelectItem value="" disabled>
+                        No participants available
+                      </SelectItem>
+                    )}
+                    {players.map(player => (
+                      <SelectItem key={player.id} value={player.id}>
+                        {player.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
               <div>
                 <Label htmlFor="game-select">Game/Activity</Label>
                 <Select value={selectedGame} onValueChange={setSelectedGame}>
@@ -266,7 +318,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
 
               <Button 
                 onClick={addPoints} 
-                disabled={loading || !selectedTeam || !points || !selectedGame}
+                disabled={loading || !selectedTeam || !selectedPlayer || !points || !selectedGame}
                 className="w-full"
               >
                 {loading ? "Adding..." : "Add Points"}
