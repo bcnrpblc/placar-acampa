@@ -265,11 +265,6 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                     <SelectValue placeholder={players.length ? "Choose a participant..." : "No participants for this team"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {players.length === 0 && (
-                      <SelectItem value="" disabled>
-                        No participants available
-                      </SelectItem>
-                    )}
                     {players.map(player => (
                       <SelectItem key={player.id} value={player.id}>
                         {player.name}
