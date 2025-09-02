@@ -80,8 +80,7 @@ export const TeamCard = ({ team, rank, isLeader, previousPoints }: TeamCardProps
       bg-gradient-to-br from-card via-card to-card/50
       border-2 border-border hover:border-${teamColorClass}
     `}>
-      {/* Team Color Stripe */}
-      <div className={`absolute top-0 left-0 w-full h-2 bg-${teamColorClass}`} />
+      {/* Team Color Stripe - Removed */}
       
       {/* Rank Badge */}
       <div className="absolute top-4 right-4">
