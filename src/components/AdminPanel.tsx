@@ -46,12 +46,15 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   const [loading, setLoading] = useState(false);
   
   // Form state
+  const [assignmentMode, setAssignmentMode] = useState<'individual' | 'team'>('individual');
   const [selectedTeam, setSelectedTeam] = useState("");
   const [players, setPlayers] = useState<Player[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const [selectedGame, setSelectedGame] = useState("");
   const [points, setPoints] = useState("");
   const [reason, setReason] = useState("");
+  const [teamPoints, setTeamPoints] = useState("");
+  const [customDistribution, setCustomDistribution] = useState<{[playerId: string]: number}>({});
   
   const { toast } = useToast();
 
@@ -69,8 +72,21 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
     } else {
       setPlayers([]);
       setSelectedPlayer("");
+      setCustomDistribution({});
     }
   }, [selectedTeam]);
+
+  // Reset custom distribution when team points change
+  useEffect(() => {
+    if (assignmentMode === 'team' && teamPoints && players.length > 0) {
+      const evenSplit = Math.floor(parseInt(teamPoints) / players.length);
+      const newDistribution: {[playerId: string]: number} = {};
+      players.forEach(player => {
+        newDistribution[player.id] = evenSplit;
+      });
+      setCustomDistribution(newDistribution);
+    }
+  }, [teamPoints, players, assignmentMode]);
 
   const fetchTeams = async () => {
     const { data } = await supabase.from('teams').select('*').order('name');
@@ -112,13 +128,24 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   };
 
   const addPoints = async () => {
-    if (!selectedTeam || !selectedPlayer || !points || !selectedGame) {
-      toast({
-        title: "Missing Information",
-        description: "Please select team, participant, game, and enter points",
-        variant: "destructive"
-      });
-      return;
+    if (assignmentMode === 'individual') {
+      if (!selectedTeam || !selectedPlayer || !points || !selectedGame) {
+        toast({
+          title: "Missing Information",
+          description: "Please select team, participant, game, and enter points",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else {
+      if (!selectedTeam || !teamPoints || !selectedGame) {
+        toast({
+          title: "Missing Information",
+          description: "Please select team, game, and enter team points",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     setLoading(true);
@@ -148,53 +175,103 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
         roundId = newRound.id;
       }
 
-      // Add score entry
-      const { error: scoreError } = await supabase
-        .from('score_entries')
-        .insert({
+      if (assignmentMode === 'individual') {
+        // Individual mode - existing logic
+        const { error: scoreError } = await supabase
+          .from('score_entries')
+          .insert({
+            round_id: roundId,
+            team_id: selectedTeam,
+            player_id: selectedPlayer,
+            points: parseInt(points),
+            reason: reason || null
+          });
+
+        if (scoreError) throw scoreError;
+
+        // Update team aggregate
+        const { error: aggregateError } = await supabase
+          .rpc('increment_team_points', {
+            target_team_id: selectedTeam,
+            points_to_add: parseInt(points)
+          });
+
+        if (aggregateError) {
+          // Fallback: manual update
+          const { data: currentAggregate } = await supabase
+            .from('team_aggregates')
+            .select('total_points')
+            .eq('team_id', selectedTeam)
+            .single();
+
+          const newTotal = (currentAggregate?.total_points || 0) + parseInt(points);
+          
+          await supabase
+            .from('team_aggregates')
+            .update({ 
+              total_points: newTotal,
+              last_updated: new Date().toISOString()
+            })
+            .eq('team_id', selectedTeam);
+        }
+
+        toast({
+          title: "Points Added!",
+          description: `Added ${points} points to ${teams.find(t => t.id === selectedTeam)?.name}`,
+        });
+      } else {
+        // Team mode - distribute points among all participants
+        const scoreEntries = players.map(player => ({
           round_id: roundId,
           team_id: selectedTeam,
-          player_id: selectedPlayer,
-          points: parseInt(points),
-          reason: reason || null
+          player_id: player.id,
+          points: customDistribution[player.id] || 0,
+          reason: reason || `Team distribution: ${teamPoints} points`
+        }));
+
+        const { error: scoreError } = await supabase
+          .from('score_entries')
+          .insert(scoreEntries);
+
+        if (scoreError) throw scoreError;
+
+        // Update team aggregate with total team points
+        const { error: aggregateError } = await supabase
+          .rpc('increment_team_points', {
+            target_team_id: selectedTeam,
+            points_to_add: parseInt(teamPoints)
+          });
+
+        if (aggregateError) {
+          // Fallback: manual update
+          const { data: currentAggregate } = await supabase
+            .from('team_aggregates')
+            .select('total_points')
+            .eq('team_id', selectedTeam)
+            .single();
+
+          const newTotal = (currentAggregate?.total_points || 0) + parseInt(teamPoints);
+          
+          await supabase
+            .from('team_aggregates')
+            .update({ 
+              total_points: newTotal,
+              last_updated: new Date().toISOString()
+            })
+            .eq('team_id', selectedTeam);
+        }
+
+        toast({
+          title: "Team Points Distributed!",
+          description: `Added ${teamPoints} points to ${teams.find(t => t.id === selectedTeam)?.name} across ${players.length} participants`,
         });
-
-      if (scoreError) throw scoreError;
-
-      // Update team aggregate
-      const { error: aggregateError } = await supabase
-        .rpc('increment_team_points', {
-          target_team_id: selectedTeam,
-          points_to_add: parseInt(points)
-        });
-
-      if (aggregateError) {
-        // Fallback: manual update
-        const { data: currentAggregate } = await supabase
-          .from('team_aggregates')
-          .select('total_points')
-          .eq('team_id', selectedTeam)
-          .single();
-
-        const newTotal = (currentAggregate?.total_points || 0) + parseInt(points);
-        
-        await supabase
-          .from('team_aggregates')
-          .update({ 
-            total_points: newTotal,
-            last_updated: new Date().toISOString()
-          })
-          .eq('team_id', selectedTeam);
       }
-
-      toast({
-        title: "Points Added!",
-        description: `Added ${points} points to ${teams.find(t => t.id === selectedTeam)?.name}`,
-      });
 
       // Reset form
       setPoints("");
+      setTeamPoints("");
       setReason("");
+      setCustomDistribution({});
       fetchRecentEntries();
 
     } catch (error) {
@@ -235,6 +312,31 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Assignment Mode Selection */}
+              <div>
+                <Label>Assign Points To</Label>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    variant={assignmentMode === 'individual' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignmentMode('individual')}
+                    className="flex-1"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Individual Participant
+                  </Button>
+                  <Button
+                    variant={assignmentMode === 'team' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignmentMode('team')}
+                    className="flex-1"
+                  >
+                    <Trophy className="w-4 h-4 mr-2" />
+                    Entire Team
+                  </Button>
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="team-select">Select Team</Label>
                 <Select value={selectedTeam} onValueChange={setSelectedTeam}>
@@ -257,22 +359,82 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                 </Select>
               </div>
 
-              {/* Participant Selection */}
-              <div>
-                <Label htmlFor="player-select">Select Participant</Label>
-                <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={players.length ? "Choose a participant..." : "No participants for this team"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {players.map(player => (
-                      <SelectItem key={player.id} value={player.id}>
-                        {player.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Individual Mode Fields */}
+              {assignmentMode === 'individual' && (
+                <>
+                  <div>
+                    <Label htmlFor="player-select">Select Participant</Label>
+                    <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={players.length ? "Choose a participant..." : "No participants for this team"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {players.map(player => (
+                          <SelectItem key={player.id} value={player.id}>
+                            {player.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="points-input">Points</Label>
+                    <Input
+                      id="points-input"
+                      type="number"
+                      value={points}
+                      onChange={(e) => setPoints(e.target.value)}
+                      placeholder="Enter points to award..."
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Team Mode Fields */}
+              {assignmentMode === 'team' && (
+                <>
+                  <div>
+                    <Label htmlFor="team-points-input">Total Team Points</Label>
+                    <Input
+                      id="team-points-input"
+                      type="number"
+                      value={teamPoints}
+                      onChange={(e) => setTeamPoints(e.target.value)}
+                      placeholder="Enter total points for team..."
+                    />
+                  </div>
+
+                  {/* Custom Distribution */}
+                  {players.length > 0 && teamPoints && (
+                    <div>
+                      <Label>Point Distribution ({players.length} participants)</Label>
+                      <div className="space-y-2 mt-2 max-h-40 overflow-y-auto">
+                        {players.map(player => (
+                          <div key={player.id} className="flex items-center gap-2">
+                            <span className="text-sm font-medium min-w-0 flex-1 truncate">
+                              {player.name}
+                            </span>
+                            <Input
+                              type="number"
+                              value={customDistribution[player.id] || 0}
+                              onChange={(e) => setCustomDistribution(prev => ({
+                                ...prev,
+                                [player.id]: parseInt(e.target.value) || 0
+                              }))}
+                              className="w-20"
+                              min="0"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Total distributed: {Object.values(customDistribution).reduce((sum, val) => sum + val, 0)} / {parseInt(teamPoints) || 0}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
               
               <div>
                 <Label htmlFor="game-select">Game/Activity</Label>
@@ -291,17 +453,6 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
               </div>
 
               <div>
-                <Label htmlFor="points-input">Points</Label>
-                <Input
-                  id="points-input"
-                  type="number"
-                  value={points}
-                  onChange={(e) => setPoints(e.target.value)}
-                  placeholder="Enter points to award..."
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="reason-input">Reason (Optional)</Label>
                 <Input
                   id="reason-input"
@@ -313,10 +464,15 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
 
               <Button 
                 onClick={addPoints} 
-                disabled={loading || !selectedTeam || !selectedPlayer || !points || !selectedGame}
+                disabled={loading || 
+                  !selectedTeam || 
+                  !selectedGame ||
+                  (assignmentMode === 'individual' && (!selectedPlayer || !points)) ||
+                  (assignmentMode === 'team' && !teamPoints)
+                }
                 className="w-full"
               >
-                {loading ? "Adding..." : "Add Points"}
+                {loading ? "Adding..." : assignmentMode === 'individual' ? "Add Points" : "Distribute Team Points"}
               </Button>
             </CardContent>
           </Card>
