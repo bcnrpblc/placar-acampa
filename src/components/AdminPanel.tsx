@@ -128,25 +128,65 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   };
 
   const addPoints = async () => {
+    // Enhanced input validation
+    if (!selectedTeam || !selectedGame) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a team and game.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (assignmentMode === 'individual') {
-      if (!selectedTeam || !selectedPlayer || !points || !selectedGame) {
+      if (!selectedPlayer) {
         toast({
-          title: "Missing Information",
-          description: "Please select team, participant, game, and enter points",
+          title: "Validation Error",
+          description: "Please select a player for individual assignment.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!points || parseInt(points) === 0) {
+        toast({
+          title: "Validation Error",
+          description: "Points cannot be zero.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (Math.abs(parseInt(points)) > 1000) {
+        toast({
+          title: "Validation Error",
+          description: "Points cannot exceed ±1000.",
           variant: "destructive"
         });
         return;
       }
     } else {
-      if (!selectedTeam || !teamPoints || !selectedGame) {
+      if (!teamPoints || parseInt(teamPoints) === 0) {
         toast({
-          title: "Missing Information",
-          description: "Please select team, game, and enter team points",
+          title: "Validation Error",
+          description: "Team points cannot be zero.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (Math.abs(parseInt(teamPoints)) > 5000) {
+        toast({
+          title: "Validation Error",
+          description: "Team points cannot exceed ±5000.",
           variant: "destructive"
         });
         return;
       }
     }
+
+    // Sanitize reason text
+    const sanitizedReason = reason.trim().substring(0, 500);
 
     setLoading(true);
     try {
@@ -184,7 +224,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
             team_id: selectedTeam,
             player_id: selectedPlayer,
             points: parseInt(points),
-            reason: reason || null
+            reason: sanitizedReason || null
           });
 
         if (scoreError) throw scoreError;
@@ -226,7 +266,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
           team_id: selectedTeam,
           player_id: player.id,
           points: customDistribution[player.id] || 0,
-          reason: reason || `Team distribution: ${teamPoints} points`
+          reason: sanitizedReason || `Team distribution: ${teamPoints} points`
         }));
 
         const { error: scoreError } = await supabase

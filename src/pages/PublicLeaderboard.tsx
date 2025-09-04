@@ -41,23 +41,36 @@ const PublicLeaderboard = () => {
       if (teamsError) throw teamsError;
       if (aggregatesError) throw aggregatesError;
 
-      // Get top players for each team
-      const { data: playersData } = await supabase
+      // Get secure player data (without phone numbers)
+      const { data: allPlayersData } = await supabase.rpc('get_players_public');
+      
+      // Get top players for each team using secure player data
+      const { data: scoresData } = await supabase
         .from('score_entries')
         .select(`
           player_id,
           team_id,
-          players!inner(id, name, team_id),
           points
         `)
         .not('player_id', 'is', null);
 
+      // Create player lookup map
+      const playersMap = new Map();
+      if (allPlayersData) {
+        allPlayersData.forEach((player: any) => {
+          playersMap.set(player.id, { name: player.name, team_id: player.team_id });
+        });
+      }
+
       // Group players by team and sum their points
       const playersByTeam: Record<string, Array<{id: string; name: string; points: number}>> = {};
       
-      if (playersData) {
-        playersData.forEach(entry => {
-          if (!entry.player_id || !entry.players) return;
+      if (scoresData) {
+        scoresData.forEach(entry => {
+          if (!entry.player_id) return;
+          
+          const player = playersMap.get(entry.player_id);
+          if (!player) return;
           
           const teamId = entry.team_id;
           if (!playersByTeam[teamId]) {
@@ -70,7 +83,7 @@ const PublicLeaderboard = () => {
           } else {
             playersByTeam[teamId].push({
               id: entry.player_id,
-              name: entry.players.name,
+              name: player.name,
               points: entry.points
             });
           }
@@ -163,15 +176,15 @@ const PublicLeaderboard = () => {
   return (
     <div className="min-h-screen bg-gradient-dark relative">
       {/* Floating Admin Button */}
-      <Button
-        onClick={() => navigate('/admin')}
-        className="fixed top-4 left-4 z-50 bg-card/80 backdrop-blur-sm hover:bg-card"
-        variant="outline"
-        size="sm"
-      >
-        <Settings className="w-4 h-4 mr-2" />
-        Admin
-      </Button>
+        <Button
+          onClick={() => navigate('/auth')}
+          className="fixed top-4 left-4 z-50 bg-card/80 backdrop-blur-sm hover:bg-card"
+          variant="outline"
+          size="sm"
+        >
+          <Settings className="w-4 h-4 mr-2" />
+          Admin
+        </Button>
 
       {/* Background Geometric Shapes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

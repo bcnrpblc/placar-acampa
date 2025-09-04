@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import PublicLeaderboard from "./pages/PublicLeaderboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import DayReveal from "./pages/DayReveal";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,6 +20,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<PublicLeaderboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/auth" element={<Auth />} />
           <Route path="/reveal" element={<DayReveal />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
