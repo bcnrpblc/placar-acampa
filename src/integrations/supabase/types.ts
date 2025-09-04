@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_identifier: string | null
+          created_at: string | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string | null
+        }
+        Insert: {
+          action: string
+          admin_identifier?: string | null
+          created_at?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+        }
+        Update: {
+          action?: string
+          admin_identifier?: string | null
+          created_at?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+        }
+        Relationships: []
+      }
       daily_snapshots: {
         Row: {
           created_at: string | null
@@ -59,6 +92,21 @@ export type Database = {
           id?: string
           slug?: string
           title?: string
+        }
+        Relationships: []
+      }
+      lista_atualizada: {
+        Row: {
+          celular: number
+          nome: string | null
+        }
+        Insert: {
+          celular: number
+          nome?: string | null
+        }
+        Update: {
+          celular?: number
+          nome?: string | null
         }
         Relationships: []
       }
@@ -242,6 +290,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_players_public: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          id: string
+          name: string
+          team_id: string
+        }[]
+      }
       increment_team_points: {
         Args: { points_to_add: number; target_team_id: string }
         Returns: undefined
