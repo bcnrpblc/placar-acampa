@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Undo2, Trophy, Users } from "lucide-react";
+import { ArrowLeft, Plus, Undo2, Trophy, Users, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Team {
@@ -330,10 +330,21 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
       <div className="container mx-auto max-w-4xl">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <Button onClick={onBack} variant="outline" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Leaderboard
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={onBack} variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Leaderboard
+            </Button>
+            <Button 
+              onClick={() => window.location.href = '/admin/roles'} 
+              variant="outline" 
+              size="sm"
+              className="bg-camp-cyan/10 text-camp-cyan border-camp-cyan/30 hover:bg-camp-cyan/20"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Manage Roles
+            </Button>
+          </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-camp bg-clip-text text-transparent">
               Camp Clash Admin
