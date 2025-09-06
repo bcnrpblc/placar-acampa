@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Undo2, Trophy, Users, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { User } from '@supabase/supabase-js';
 
 interface Team {
   id: string;
@@ -33,6 +34,7 @@ interface ScoreEntry {
   created_at: string;
   team: { name: string; color: string };
   player: { name: string } | null;
+  admin: { display_name: string } | null;
 }
 
 interface AdminPanelProps {
@@ -44,6 +46,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   const [games, setGames] = useState<Game[]>([]);
   const [recentEntries, setRecentEntries] = useState<ScoreEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Form state
   const [assignmentMode, setAssignmentMode] = useState<'individual' | 'team'>('individual');
@@ -63,7 +66,33 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
     fetchTeams();
     fetchGames();
     fetchRecentEntries();
+    getCurrentUser();
   }, []);
+
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUser(user);
+    
+    // Ensure user has a profile
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (!profile) {
+        // Create profile if it doesn't exist
+        await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email!,
+            display_name: user.email!.split('@')[0]
+          });
+      }
+    }
+  };
 
   // Fetch players when team changes
   useEffect(() => {
@@ -118,13 +147,31 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
         points,
         reason,
         created_at,
+        created_by,
         team:teams(name, color),
         player:players(name)
       `)
       .order('created_at', { ascending: false })
       .limit(10);
     
-    if (data) setRecentEntries(data as ScoreEntry[]);
+    if (data) {
+      // Fetch admin info separately for each entry
+      const entriesWithAdmin = await Promise.all(
+        data.map(async (entry) => {
+          let admin = null;
+          if (entry.created_by) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('display_name')
+              .eq('id', entry.created_by)
+              .single();
+            admin = profile;
+          }
+          return { ...entry, admin };
+        })
+      );
+      setRecentEntries(entriesWithAdmin as ScoreEntry[]);
+    }
   };
 
   const addPoints = async () => {
@@ -224,7 +271,8 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
             team_id: selectedTeam,
             player_id: selectedPlayer,
             points: parseInt(points),
-            reason: sanitizedReason || null
+            reason: sanitizedReason || null,
+            created_by: currentUser?.id
           });
 
         if (scoreError) throw scoreError;
@@ -266,7 +314,8 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
           team_id: selectedTeam,
           player_id: player.id,
           points: customDistribution[player.id] || 0,
-          reason: sanitizedReason || `Team distribution: ${teamPoints} points`
+          reason: sanitizedReason || `Team distribution: ${teamPoints} points`,
+          created_by: currentUser?.id
         }));
 
         const { error: scoreError } = await supabase
@@ -550,6 +599,11 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                         <p className="text-xs text-muted-foreground">
                           {entry.reason || 'Points awarded'}
                         </p>
+                        {entry.admin && (
+                          <p className="text-xs text-muted-foreground/60">
+                            Added by: {entry.admin.display_name}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
