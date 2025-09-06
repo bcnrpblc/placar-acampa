@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Undo2, Trophy, Users, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from '@supabase/supabase-js';
+import type { User } from "@supabase/supabase-js";
 
 interface Team {
   id: string;
