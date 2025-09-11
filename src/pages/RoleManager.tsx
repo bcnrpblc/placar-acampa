@@ -72,8 +72,12 @@ const RoleManager = () => {
         }
       }
     } catch (error) {
-      console.error('Error checking admin status:', error);
-      setIsAdmin(false);
+      console.error('Error fetching users:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch users"
+      });
     } finally {
       setLoading(false);
     }
@@ -82,10 +86,12 @@ const RoleManager = () => {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      // Get all auth users
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+      // Get all profiles (which are created for each user)
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email, created_at');
       
-      if (authError) throw authError;
+      if (profilesError) throw profilesError;
 
       // Get all user roles
       const { data: roleData, error: roleError } = await supabase
@@ -95,11 +101,11 @@ const RoleManager = () => {
       if (roleError) throw roleError;
 
       // Combine data
-      const usersWithRoles = authUsers.users.map(authUser => ({
-        id: authUser.id,
-        email: authUser.email || 'No email',
-        created_at: authUser.created_at,
-        is_admin: roleData.some(role => role.user_id === authUser.id && role.role === 'admin')
+      const usersWithRoles = profilesData.map(profile => ({
+        id: profile.id,
+        email: profile.email || 'No email',
+        created_at: profile.created_at,
+        is_admin: roleData.some(role => role.user_id === profile.id && role.role === 'admin')
       }));
 
       setUsers(usersWithRoles);
@@ -117,32 +123,46 @@ const RoleManager = () => {
 
   const toggleAdminRole = async (userId: string, isCurrentlyAdmin: boolean) => {
     try {
+      let result;
+      
       if (isCurrentlyAdmin) {
-        // Remove admin role
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId)
-          .eq('role', 'admin');
+        // Remove admin role using security definer function
+        const { data, error } = await supabase
+          .rpc('admin_remove_role', { 
+            target_user_id: userId, 
+            role_to_remove: 'admin' 
+          });
 
         if (error) throw error;
+        result = data;
         
-        toast({
-          title: "Success",
-          description: "Admin access revoked"
-        });
+        if (result) {
+          toast({
+            title: "Success",
+            description: "Admin access revoked"
+          });
+        } else {
+          throw new Error("Operation not permitted");
+        }
       } else {
-        // Add admin role
-        const { error } = await supabase
-          .from('user_roles')
-          .insert({ user_id: userId, role: 'admin' });
+        // Add admin role using security definer function
+        const { data, error } = await supabase
+          .rpc('admin_add_role', { 
+            target_user_id: userId, 
+            role_to_add: 'admin' 
+          });
 
         if (error) throw error;
+        result = data;
         
-        toast({
-          title: "Success", 
-          description: "Admin access granted"
-        });
+        if (result) {
+          toast({
+            title: "Success", 
+            description: "Admin access granted"
+          });
+        } else {
+          throw new Error("Operation not permitted");
+        }
       }
 
       // Refresh users list

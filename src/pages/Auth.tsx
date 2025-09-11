@@ -120,12 +120,12 @@ const Auth = () => {
         <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold bg-gradient-camp bg-clip-text text-transparent">
-              Authenticated
+              Autenticado
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground text-center">
-              You are logged in as: {user.email}
+              Você está logado(a) como: {user.email}
             </p>
             <div className="flex gap-2">
               <Button 
@@ -138,7 +138,7 @@ const Auth = () => {
                 onClick={handleSignOut}
                 variant="outline"
               >
-                Sign Out
+                Sair
               </Button>
             </div>
           </CardContent>
@@ -165,7 +165,7 @@ const Auth = () => {
           className="mb-6 bg-card/50 backdrop-blur-sm"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Leaderboard
+          Voltar ao Placar
         </Button>
 
         <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
@@ -195,14 +195,14 @@ const Auth = () => {
               </div>
               
               <div>
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Senha</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password..."
+                    placeholder="Digite sua senha..."
                     className="pr-10"
                     required
                   />
@@ -223,7 +223,7 @@ const Auth = () => {
                 disabled={loading}
                 className="w-full bg-camp-cyan text-camp-dark hover:bg-camp-cyan/90"
               >
-                {loading ? "Loading..." : (isLogin ? "Sign In" : "Sign Up")}
+                {loading ? "Carregando..." : (isLogin ? "Sign In" : "Sign Up")}
               </Button>
 
               <div className="text-center">
@@ -233,13 +233,13 @@ const Auth = () => {
                   onClick={() => setIsLogin(!isLogin)}
                   className="text-camp-cyan"
                 >
-                  {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
+                  {isLogin ? "Precisa de uma conta? Cadastre-se" : "Já tem uma conta? Entrar"}
                 </Button>
               </div>
             </form>
 
             <div className="text-center text-xs text-muted-foreground mt-4">
-              For authorized personnel only
+              Somente para pessoas autorizadas
             </div>
           </CardContent>
         </Card>

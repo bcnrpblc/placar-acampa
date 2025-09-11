@@ -167,7 +167,7 @@ const PublicLeaderboard = () => {
       <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-camp-cyan mb-4"></div>
-          <p className="text-xl text-muted-foreground">Loading Camp Leaderboard...</p>
+          <p className="text-xl text-muted-foreground">Carregando o Placar...</p>
         </div>
       </div>
     );
@@ -205,7 +205,7 @@ const PublicLeaderboard = () => {
               Live Leaderboard
             </p>
             <div className="text-sm md:text-base text-muted-foreground mb-4 max-w-2xl mx-auto italic">
-              "Therefore be imitators of God, as beloved children" - Ephesians 5:1
+              "Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1
             </div>
           </div>
           
@@ -215,7 +215,7 @@ const PublicLeaderboard = () => {
               <CardContent className="flex items-center gap-2 p-4">
                 <Calendar className="w-5 h-5 text-camp-cyan" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Day</p>
+                  <p className="text-xs text-muted-foreground">Dia</p>
                   <p className="font-bold">{format(new Date(), 'MMM d')}</p>
                 </div>
               </CardContent>
@@ -225,7 +225,7 @@ const PublicLeaderboard = () => {
               <CardContent className="flex items-center gap-2 p-4">
                 <Clock className="w-5 h-5 text-camp-pink" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Updated</p>
+                  <p className="text-xs text-muted-foreground">Atualizado</p>
                   <p className="font-bold">{format(lastUpdate, 'HH:mm')}</p>
                 </div>
               </CardContent>
@@ -235,7 +235,7 @@ const PublicLeaderboard = () => {
               <CardContent className="flex items-center gap-2 p-4">
                 <Users className="w-5 h-5 text-team-green" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Teams</p>
+                  <p className="text-xs text-muted-foreground">Equipes</p>
                   <p className="font-bold">{teams.length}</p>
                 </div>
               </CardContent>
@@ -245,7 +245,7 @@ const PublicLeaderboard = () => {
               <CardContent className="flex items-center gap-2 p-4">
                 <Activity className="w-5 h-5 text-team-yellow" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Viewers</p>
+                  <p className="text-xs text-muted-foreground">Visualizadores</p>
                   <p className="font-bold">{activeViewers}</p>
                 </div>
               </CardContent>
@@ -256,7 +256,7 @@ const PublicLeaderboard = () => {
 
       {/* Leaderboard Grid */}
       <div className="container mx-auto px-4 py-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4">
           {teams.map((team, index) => (
             <TeamCard
               key={team.id}

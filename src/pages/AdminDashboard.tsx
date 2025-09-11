@@ -73,7 +73,7 @@ const AdminDashboard = () => {
       <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-camp-cyan mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Checking authentication...</p>
+          <p className="text-muted-foreground">Verificando Autenticação...</p>
         </div>
       </div>
     );
@@ -97,7 +97,7 @@ const AdminDashboard = () => {
             className="mb-6 bg-card/50 backdrop-blur-sm"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Leaderboard
+            Voltar ao Placar
           </Button>
 
           <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
@@ -106,10 +106,10 @@ const AdminDashboard = () => {
                 <Lock className="w-8 h-8 text-camp-cyan" />
               </div>
               <CardTitle className="text-2xl font-bold bg-gradient-camp bg-clip-text text-transparent">
-                Authentication Required
+                Autenticação Obrigatória
               </CardTitle>
               <p className="text-muted-foreground">
-                Please sign in to access the admin panel
+                Por favor, faça login para acessar o painel de administração
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -117,11 +117,11 @@ const AdminDashboard = () => {
                 onClick={() => navigate('/auth')}
                 className="w-full bg-camp-cyan text-camp-dark hover:bg-camp-cyan/90"
               >
-                Go to Login
+                Vá para o Login
               </Button>
               
               <div className="text-center text-xs text-muted-foreground">
-                For authorized administrators only
+                Acesso somente para administradores autorizados
               </div>
             </CardContent>
           </Card>
@@ -148,7 +148,7 @@ const AdminDashboard = () => {
             className="mb-6 bg-card/50 backdrop-blur-sm"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Leaderboard
+            Voltar ao Placar
           </Button>
 
           <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
@@ -157,15 +157,15 @@ const AdminDashboard = () => {
                 <Lock className="w-8 h-8 text-red-500" />
               </div>
               <CardTitle className="text-2xl font-bold text-red-400">
-                Access Denied
+                Acesso Negado
               </CardTitle>
               <p className="text-muted-foreground">
-                You don't have administrator privileges
+                Você não tem privilégios de administrador
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground text-center">
-                Logged in as: {user.email}
+                Logado como: {user.email}
               </p>
               
               <div className="flex gap-2">
@@ -174,7 +174,7 @@ const AdminDashboard = () => {
                   variant="outline"
                   className="flex-1"
                 >
-                  Back to Leaderboard
+                  Voltar ao Placar
                 </Button>
                 
                 <Button 
@@ -187,7 +187,7 @@ const AdminDashboard = () => {
               </div>
               
               <div className="text-center text-xs text-muted-foreground">
-                Contact an administrator to request access
+                Contate o Flavio Angeleu para solicitar acesso
               </div>
             </CardContent>
           </Card>

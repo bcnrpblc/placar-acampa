@@ -179,7 +179,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
     if (!selectedTeam || !selectedGame) {
       toast({
         title: "Validation Error",
-        description: "Please select a team and game.",
+        description: "Selecione um time e um jogo",
         variant: "destructive"
       });
       return;
@@ -189,7 +189,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
       if (!selectedPlayer) {
         toast({
           title: "Validation Error",
-          description: "Please select a player for individual assignment.",
+          description: "Selecione um jogador para pontuação individual.",
           variant: "destructive"
         });
         return;
@@ -198,7 +198,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
       if (!points || parseInt(points) === 0) {
         toast({
           title: "Validation Error",
-          description: "Points cannot be zero.",
+          description: "Pontos não podem ser 0",
           variant: "destructive"
         });
         return;
@@ -207,7 +207,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
       if (Math.abs(parseInt(points)) > 1000) {
         toast({
           title: "Validation Error",
-          description: "Points cannot exceed ±1000.",
+          description: "Pontos não podem execeder ±1000.",
           variant: "destructive"
         });
         return;
@@ -216,16 +216,16 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
       if (!teamPoints || parseInt(teamPoints) === 0) {
         toast({
           title: "Validation Error",
-          description: "Team points cannot be zero.",
+          description: "Pontos do time não podem ser 0",
           variant: "destructive"
         });
         return;
       }
 
-      if (Math.abs(parseInt(teamPoints)) > 5000) {
+      if (Math.abs(parseInt(teamPoints)) > 10000) {
         toast({
           title: "Validation Error",
-          description: "Team points cannot exceed ±5000.",
+          description: "Pontos do time não podem execeder ±10000.",
           variant: "destructive"
         });
         return;
@@ -304,8 +304,8 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
         }
 
         toast({
-          title: "Points Added!",
-          description: `Added ${points} points to ${teams.find(t => t.id === selectedTeam)?.name}`,
+          title: "Pontos Adicionados!",
+          description: `Adicionados ${points} pontos à equipe ${teams.find(t => t.id === selectedTeam)?.name}`,
         });
       } else {
         // Team mode - distribute points among all participants
@@ -314,7 +314,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
           team_id: selectedTeam,
           player_id: player.id,
           points: customDistribution[player.id] || 0,
-          reason: sanitizedReason || `Team distribution: ${teamPoints} points`,
+          reason: sanitizedReason || `Distribuição na equipe: ${teamPoints} pontos`,
           created_by: currentUser?.id
         }));
 
@@ -351,8 +351,8 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
         }
 
         toast({
-          title: "Team Points Distributed!",
-          description: `Added ${teamPoints} points to ${teams.find(t => t.id === selectedTeam)?.name} across ${players.length} participants`,
+          title: "Pontos da Equipe Distribuídos!",
+          description: `Adicionados ${teamPoints} pontos à equipe ${teams.find(t => t.id === selectedTeam)?.name} em ${players.length} participantes`,
         });
       }
 
@@ -364,10 +364,10 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
       fetchRecentEntries();
 
     } catch (error) {
-      console.error('Error adding points:', error);
+      console.error('Erro ao adicionar pontos:', error);
       toast({
-        title: "Error",
-        description: "Failed to add points. Please try again.",
+        title: "Erro",
+        description: "Falha ao adicionar pontos. Por favor, tente novamente.",
         variant: "destructive"
       });
     }
@@ -382,7 +382,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
           <div className="flex items-center gap-2">
             <Button onClick={onBack} variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Leaderboard
+              Voltar ao Placar
             </Button>
             <Button 
               onClick={() => window.location.href = '/admin/roles'} 
@@ -391,14 +391,14 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
               className="bg-camp-cyan/10 text-camp-cyan border-camp-cyan/30 hover:bg-camp-cyan/20"
             >
               <Settings className="w-4 h-4 mr-2" />
-              Manage Roles
+              Gerenciar Papeis
             </Button>
           </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-camp bg-clip-text text-transparent">
-              Camp Clash Admin
+              Painel de Controle Acampa 25+
             </h1>
-            <p className="text-muted-foreground">Judge Panel • Add Points & Manage Scores</p>
+            <p className="text-muted-foreground">Gestor de Pontos</p>
           </div>
         </div>
 
@@ -408,13 +408,13 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Plus className="w-5 h-5 text-camp-cyan" />
-                Add Points
+                Adicionar Pontos
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Assignment Mode Selection */}
               <div>
-                <Label>Assign Points To</Label>
+                <Label>Atribuir Pontos Para</Label>
                 <div className="flex gap-2 mt-2">
                   <Button
                     variant={assignmentMode === 'individual' ? 'default' : 'outline'}
@@ -423,7 +423,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                     className="flex-1"
                   >
                     <Users className="w-4 h-4 mr-2" />
-                    Individual Participant
+                    Participante
                   </Button>
                   <Button
                     variant={assignmentMode === 'team' ? 'default' : 'outline'}
@@ -432,16 +432,16 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                     className="flex-1"
                   >
                     <Trophy className="w-4 h-4 mr-2" />
-                    Entire Team
+                    Equipe
                   </Button>
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="team-select">Select Team</Label>
+                <Label htmlFor="team-select">Selecionar Equipe</Label>
                 <Select value={selectedTeam} onValueChange={setSelectedTeam}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose a team..." />
+                    <SelectValue placeholder="Selecione uma equipe..." />
                   </SelectTrigger>
                   <SelectContent>
                     {teams.map(team => (
@@ -466,7 +466,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                     <Label htmlFor="player-select">Select Participant</Label>
                     <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
                       <SelectTrigger>
-                        <SelectValue placeholder={players.length ? "Choose a participant..." : "No participants for this team"} />
+                        <SelectValue placeholder={players.length ? "Selecione um participante..." : "Nenhum participante para este time"} />
                       </SelectTrigger>
                       <SelectContent>
                         {players.map(player => (
@@ -479,13 +479,13 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                   </div>
 
                   <div>
-                    <Label htmlFor="points-input">Points</Label>
+                    <Label htmlFor="points-input">Pontos</Label>
                     <Input
                       id="points-input"
                       type="number"
                       value={points}
                       onChange={(e) => setPoints(e.target.value)}
-                      placeholder="Enter points to award..."
+                      placeholder="Digite pontos a serem concedidos..."
                     />
                   </div>
                 </>
@@ -495,20 +495,20 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
               {assignmentMode === 'team' && (
                 <>
                   <div>
-                    <Label htmlFor="team-points-input">Total Team Points</Label>
+                    <Label htmlFor="team-points-input">Pontos Total da Equipe</Label>
                     <Input
                       id="team-points-input"
                       type="number"
                       value={teamPoints}
                       onChange={(e) => setTeamPoints(e.target.value)}
-                      placeholder="Enter total points for team..."
+                      placeholder="Digite o Total de Pontos para a Equipe..."
                     />
                   </div>
 
                   {/* Custom Distribution */}
                   {players.length > 0 && teamPoints && (
                     <div>
-                      <Label>Point Distribution ({players.length} participants)</Label>
+                      <Label>Distribuição de Pontos ({players.length} Participantes)</Label>
                       <div className="space-y-2 mt-2 max-h-40 overflow-y-auto">
                         {players.map(player => (
                           <div key={player.id} className="flex items-center gap-2">
@@ -537,10 +537,10 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
               )}
               
               <div>
-                <Label htmlFor="game-select">Game/Activity</Label>
+                <Label htmlFor="Slecione o Jogo">Jogo/Atividade</Label>
                 <Select value={selectedGame} onValueChange={setSelectedGame}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose a game..." />
+                    <SelectValue placeholder="Selecione o Jogo..." />
                   </SelectTrigger>
                   <SelectContent>
                     {games.map(game => (
@@ -553,12 +553,12 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
               </div>
 
               <div>
-                <Label htmlFor="reason-input">Reason (Optional)</Label>
+                <Label htmlFor="reason-input">Motivo dos Pontos</Label>
                 <Input
                   id="reason-input"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g., 'Won night game', 'Team participation'..."
+                  placeholder="e.g., 'Ganhou a brincadeira noturna, participação extra'..."
                 />
               </div>
 
@@ -572,7 +572,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                 }
                 className="w-full"
               >
-                {loading ? "Adding..." : assignmentMode === 'individual' ? "Add Points" : "Distribute Team Points"}
+                {loading ? "Adicionando..." : assignmentMode === 'individual' ? "Adicionar pontos" : "Distribuir Pontos para Equipe"}
               </Button>
             </CardContent>
           </Card>
@@ -582,7 +582,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-camp-pink" />
-                Recent Entries
+                Entradas Recentes
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -601,7 +601,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                         </p>
                         {entry.admin && (
                           <p className="text-xs text-muted-foreground/60">
-                            Added by: {entry.admin.display_name}
+                            Adicionado por: {entry.admin.display_name}
                           </p>
                         )}
                       </div>
@@ -618,7 +618,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                 ))}
                 {recentEntries.length === 0 && (
                   <p className="text-center text-muted-foreground py-8">
-                    No entries yet. Start by adding some points!
+                    Nenhum registro ainda. Comece adicionando alguns pontos!
                   </p>
                 )}
               </div>
