@@ -56,7 +56,7 @@ const DayReveal = () => {
         setTimeout(() => {
           setRevealState('revealing');
           runRevealSequence();
-        }, 2000);
+        }, 200);
       }
     } catch (error) {
       console.error('Error creating day snapshot:', error);
@@ -70,18 +70,18 @@ const DayReveal = () => {
     
     // Phase 2: Spotlight top 3 (2s each = 6s total)
     setCurrentPhase(2);
-    await wait(6000);
+    await wait(2000);
     
     // Phase 3: Winner celebration (4s)
     setCurrentPhase(3);
     triggerConfetti();
-    await wait(4000);
+    await wait(10000);
     
     setRevealState('complete');
   };
 
   const triggerConfetti = () => {
-    const duration = 3000;
+    const duration = 10000;
     const end = Date.now() + duration;
 
     const colors = ['#23dbf3', '#ee1147', '#ffffff'];
@@ -180,7 +180,7 @@ const RevealControlPanel = ({ selectedDay, onDayChange, onStartReveal }: any) =>
               </CardTitle>
               <p className="text-xl md:text-2xl text-muted-foreground mb-2">Acampamento 25+</p>
               <div className="text-sm text-muted-foreground mt-2">
-                "Follow God's example, therefore, as dearly loved children" - Ephesians 5:1
+                "Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -221,7 +221,7 @@ const RevealControlPanel = ({ selectedDay, onDayChange, onStartReveal }: any) =>
                          shadow-elevation"
               >
                 <Sparkles className="w-8 h-8 mr-3" />
-                INICIAR REVEAL ESPETACULAR
+                INICIAR APURAÇÃO
                 <Sparkles className="w-8 h-8 ml-3" />
               </Button>
             </CardContent>
@@ -249,7 +249,7 @@ const LockingAnimation = () => {
             className="w-32 h-32 mx-auto mb-8 rounded-full border-8 border-camp-cyan border-t-camp-pink shadow-camp"
           ></motion.div>
           <h2 className="text-4xl font-black text-foreground mb-4">
-            TRAVANDO O DIA...
+            APURANDO...
           </h2>
           <p className="text-muted-foreground text-xl">
             Preparando o reveal espetacular
