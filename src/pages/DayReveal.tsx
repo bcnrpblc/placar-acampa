@@ -268,7 +268,7 @@ const LockingAnimation = () => {
   );
 };
 
-// Heartbeat Transition Component - ADD THIS ENTIRE COMPONENT HERE
+// Heartbeat Transition Component - 
 const HeartbeatTransition = () => {
   return (
     <motion.div
@@ -286,8 +286,8 @@ const HeartbeatTransition = () => {
             opacity: [0.3, 0, 0.3],
           }}
           transition={{
-            duration: 1.5,
-            repeat: 2, // 3 total beats
+            duration: 10,
+            repeat: 10, // 3 total beats
             ease: "easeInOut",
           }}
           className="absolute inset-0 w-64 h-64 -translate-x-32 -translate-y-32 
@@ -301,10 +301,10 @@ const HeartbeatTransition = () => {
             opacity: [0.5, 0.1, 0.5],
           }}
           transition={{
-            duration: 1.5,
+            duration: 5,
             repeat: 2,
             ease: "easeInOut",
-            delay: 0.1,
+            delay: 0.5,
           }}
           className="absolute inset-0 w-48 h-48 -translate-x-24 -translate-y-24 
                      rounded-full bg-camp-cyan/50 blur-lg"
@@ -313,7 +313,7 @@ const HeartbeatTransition = () => {
         {/* Core heartbeat */}
         <motion.div
           animate={{
-            scale: [1, 1.2, 0.9, 1],
+            scale: [3, 3.2, 0.9, 3],
             boxShadow: [
               "0 0 0 0 rgba(35, 219, 243, 0.7)",
               "0 0 0 40px rgba(35, 219, 243, 0)",
@@ -322,8 +322,8 @@ const HeartbeatTransition = () => {
             ],
           }}
           transition={{
-            duration: 1.5,
-            repeat: 2,
+            duration: 2,
+            repeat: 5,
             ease: "easeInOut",
           }}
           className="w-32 h-32 rounded-full bg-gradient-to-br from-camp-cyan to-camp-pink 
@@ -333,16 +333,17 @@ const HeartbeatTransition = () => {
         {/* Center countdown */}
         <motion.div
           animate={{
-            scale: [1, 1.1, 0.95, 1],
+            scale: [1, 1.2, 0.95, 1],
           }}
           transition={{
-            duration: 1.5,
-            repeat: 2,
+            duration: 10,
+            repeat: 10,
             ease: "easeInOut",
           }}
           className="absolute inset-0 flex items-center justify-center"
         >
-          <span className="text-6xl font-black text-white/90">3</span>
+          <span className="text-6xl font-black text-white/90"></span>
+
         </motion.div>
       </div>
       
@@ -376,7 +377,7 @@ const RevealSpectacle = ({ snapshot, phase }: any) => {
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-6xl mx-auto"
+              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4"
             >
               {(() => {
                 // Phase 1: Show teams in randomized order to hide rankings
