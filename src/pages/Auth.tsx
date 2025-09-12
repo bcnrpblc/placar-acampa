@@ -75,7 +75,7 @@ const Auth = () => {
           description: "Welcome back!",
         });
       } else {
-        const redirectUrl = import.meta.env.VITE_PUBLIC_URL || `${window.location.origin}/`;
+        const redirectUrl = `${window.location.origin}/`;
         
         const { error } = await supabase.auth.signUp({
           email,
