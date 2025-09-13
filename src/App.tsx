@@ -9,6 +9,7 @@ import DayReveal from "./pages/DayReveal";
 import Auth from "./pages/Auth";
 import RoleManager from "./pages/RoleManager";
 import NotFound from "./pages/NotFound";
+import GameReveal from './pages/GameReveal';
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin/roles" element={<RoleManager />} />
           <Route path="/reveal" element={<DayReveal />} />
+          <Route path="/game-reveal" element={<GameReveal />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

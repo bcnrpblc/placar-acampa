@@ -5,47 +5,66 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from '@/integrations/supabase/client';
-import { Trophy, Star, Sparkles, Crown, ArrowLeft, TrendingUp, Calendar } from 'lucide-react';
+import { Trophy, Star, Sparkles, Crown, ArrowLeft, TrendingUp, Gamepad2, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 import * as React from "react";
 
-const DayReveal = () => {
-  const [revealState, setRevealState] = useState<'waiting' | 'locking' | 'revealing' | 'complete'>('waiting');
-  const [selectedDay] = useState(format(new Date(), 'yyyy-MM-dd'));
+const GameReveal = () => {
+  const [revealState, setRevealState] = useState<'selecting' | 'locking' | 'revealing' | 'complete'>('selecting');
+  const [selectedGame, setSelectedGame] = useState<string>('');
+  const [games, setGames] = useState<any[]>([]);
   const [snapshot, setSnapshot] = useState<any>(null);
   const [currentPhase, setCurrentPhase] = useState(1);
   const navigate = useNavigate();
 
+  // Load available games on component mount
+  useEffect(() => {
+    loadGames();
+  }, []);
+
+  const loadGames = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('games')
+        .select('id, title')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      if (data) setGames(data);
+    } catch (error) {
+      console.error('Error loading games:', error);
+    }
+  };
+
   const handleStartReveal = async () => {
+    if (!selectedGame) return;
+    
     setRevealState('locking');
     
     try {
-      // Lock the day (create snapshot)
-      const { data: teamsData } = await supabase
-        .from('team_aggregates')
-        .select(`
-          team_id,
-          total_points,
-          teams (
-            id,
-            name,
-            color,
-            avatar_url
-          )
-        `)
+      // Get the selected game details
+      const selectedGameData = games.find(g => g.id === selectedGame);
+      
+      // Fetch game-specific scores using the view
+      const { data: gameScores, error } = await supabase
+        .from('game_team_scores')
+        .select('*')
+        .eq('game_id', selectedGame)
         .order('total_points', { ascending: false });
 
-      if (teamsData) {
+      if (error) throw error;
+
+      if (gameScores && gameScores.length > 0) {
         const formattedSnapshot = {
-          day: selectedDay,
-          teams: teamsData.map((item: any, index: number) => ({
-            id: item.team_id,
-            name: item.teams.name,
-            color: item.teams.color,
-            avatar_url: item.teams.avatar_url,
-            total_points: item.total_points,
+          game_id: selectedGame,
+          game_title: selectedGameData?.title || gameScores[0].game_title,
+          teams: gameScores.map((score: any, index: number) => ({
+            id: score.team_id,
+            name: score.team_name,
+            color: score.team_color,
+            avatar_url: score.team_avatar,
+            total_points: score.total_points,
             rank: index + 1
           }))
         };
@@ -57,20 +76,25 @@ const DayReveal = () => {
           setRevealState('revealing');
           runRevealSequence();
         }, 2000);
+      } else {
+        // No scores found for this game
+        alert('Nenhuma pontuação encontrada para este jogo.');
+        setRevealState('selecting');
       }
     } catch (error) {
-      console.error('Error creating day snapshot:', error);
+      console.error('Error creating game snapshot:', error);
+      setRevealState('selecting');
     }
   };
 
   const runRevealSequence = async () => {
-    // Phase 1: Time-based counting (10s - matching your slot machine)
+    // Phase 1: Time-based counting (10s)
     setCurrentPhase(1);
-    await wait(10000);  // Changed to match your 10s slot machine
+    await wait(10000);
     
     // HEARTBEAT TRANSITION (4.5 seconds)
-    setCurrentPhase(1.5); // New intermediate phase!
-    await wait(4500); // Duration of heartbeat (3 beats × 1.5s)
+    setCurrentPhase(1.5);
+    await wait(4500);
     
     // Phase 2: Direct Top 3 spotlight (5s)
     setCurrentPhase(2);
@@ -114,6 +138,13 @@ const DayReveal = () => {
 
   const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+  const handleReset = () => {
+    setRevealState('selecting');
+    setSelectedGame('');
+    setSnapshot(null);
+    setCurrentPhase(1);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-dark relative overflow-hidden">
       {/* Back Button */}
@@ -136,9 +167,11 @@ const DayReveal = () => {
       </div>
 
       <AnimatePresence mode="wait">
-        {revealState === 'waiting' && (
-          <RevealControlPanel
-            selectedDay={selectedDay}
+        {revealState === 'selecting' && (
+          <GameSelectionPanel
+            games={games}
+            selectedGame={selectedGame}
+            onGameChange={setSelectedGame}
             onStartReveal={handleStartReveal}
           />
         )}
@@ -157,7 +190,7 @@ const DayReveal = () => {
         {revealState === 'complete' && snapshot && (
           <RevealComplete
             snapshot={snapshot}
-            onReset={() => setRevealState('waiting')}
+            onReset={handleReset}
           />
         )}
       </AnimatePresence>
@@ -165,19 +198,8 @@ const DayReveal = () => {
   );
 };
 
-// Control Panel Component
-const RevealControlPanel = ({ selectedDay, onStartReveal }: any) => {
-  const getTodayFormatted = () => {
-    const today = new Date();
-    const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    
-    const dayName = dayNames[today.getDay()];
-    const day = today.getDate().toString().padStart(2, '0');
-    const month = monthNames[today.getMonth()];
-    
-    return `${dayName} - ${day} ${month}`;
-  };
+// Game Selection Panel Component
+const GameSelectionPanel = ({ games, selectedGame, onGameChange, onStartReveal }: any) => {
   return (
     <div className="min-h-screen bg-gradient-glow">
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
@@ -185,14 +207,17 @@ const RevealControlPanel = ({ selectedDay, onStartReveal }: any) => {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
-          className="w-full max-w-4x2"
+          className="w-full max-w-4xl"
         >
           <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
             <CardHeader className="text-center">
+              <div className="flex justify-center mb-4">
+                <Gamepad2 className="w-16 h-16 text-camp-cyan" />
+              </div>
               <CardTitle className="text-6xl md:text-9xl font-black bg-gradient-camp bg-clip-text text-transparent mb-4">
-                APURAÇÃO DO DIA
+                APURAÇÃO POR JOGO
               </CardTitle>
-              <p className="text-xl md:text-2x1 text-muted-foreground mb-2">Acampamento 25+</p>
+              <p className="text-xl md:text-2xl text-muted-foreground mb-2">Acampamento 25+</p>
               <div className="text-xl text-muted-foreground mt-2">
                 "Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1
               </div>
@@ -200,36 +225,59 @@ const RevealControlPanel = ({ selectedDay, onStartReveal }: any) => {
             <CardContent className="space-y-6">
               <div>
                 <label className="text-foreground text-lg mb-3 block font-semibold">
-                  Dia Selecionado
+                  Selecione o Jogo
                 </label>
-                <div className="w-full bg-card/50 border border-border text-foreground text-lg py-3 px-3 rounded-md flex items-center gap-3">
-                  <Calendar className="w-10 h-5 text-camp-cyan" />
-                  <span>{getTodayFormatted()}</span>
+                <div className="relative">
+                  <select
+                    value={selectedGame}
+                    onChange={(e) => onGameChange(e.target.value)}
+                    className="w-full bg-card/50 border border-border text-foreground text-lg py-3 px-4 rounded-md appearance-none cursor-pointer
+                             hover:bg-card/70 transition-colors focus:outline-none focus:ring-2 focus:ring-camp-cyan"
+                  >
+                    <option value="">-- Escolha um jogo --</option>
+                    {games.map((game: any) => (
+                      <option key={game.id} value={game.id}>
+                        {game.title}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
                 </div>
               </div>
 
-              <Card className="bg-team-yellow/20 border-team-yellow/50">
-                <CardContent className="flex items-start gap-3 p-4">
-                  <div className="text-team-yellow text-xl">⚠️</div>
-                  <div>
-                    <p className="text-team-yellow font-semibold mb-1">Atenção!</p>
-                    <p className="text-muted-foreground text-sm">
-                      Após iniciar o reveal, o dia será travado e não poderá receber mais pontos. 
-                      Certifique-se que todos os pontos foram adicionados corretamente.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+              {selectedGame && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Card className="bg-camp-cyan/10 border-camp-cyan/30">
+                    <CardContent className="flex items-center gap-3 p-4">
+                      <Trophy className="w-6 h-6 text-camp-cyan" />
+                      <div>
+                        <p className="text-camp-cyan font-semibold">
+                          Jogo selecionado: {games.find(g => g.id === selectedGame)?.title}
+                        </p>
+                        <p className="text-muted-foreground text-sm mt-1">
+                          Pronto para revelar os vencedores!
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
 
               <Button
                 onClick={onStartReveal}
+                disabled={!selectedGame}
                 className="w-full py-6 text-4xl font-black rounded-xl
                          bg-gradient-camp hover:opacity-90
-                         transform hover:scale-105 active:scale-80 transition-all
-                         shadow-elevation"
+                         transform hover:scale-105 active:scale-95 transition-all
+                         shadow-elevation disabled:opacity-50 disabled:cursor-not-allowed
+                         disabled:transform-none"
               >
                 <Sparkles className="w-8 h-8 mr-3" />
-                INICIAR A APURAÇÃO
+                INICIAR APURAÇÃO
                 <Sparkles className="w-8 h-8 ml-3" />
               </Button>
             </CardContent>
@@ -257,10 +305,10 @@ const LockingAnimation = () => {
             className="w-32 h-32 mx-auto mb-8 rounded-full border-8 border-camp-cyan border-t-camp-pink shadow-camp"
           ></motion.div>
           <h2 className="text-4xl font-black text-foreground mb-4">
-            SOMANDO OS PONTOS...
+            CALCULANDO PONTUAÇÃO...
           </h2>
           <p className="text-muted-foreground text-xl">
-            Preparando o resultado final...
+            Preparando o resultado do jogo...
           </p>
         </motion.div>
       </div>
@@ -268,7 +316,7 @@ const LockingAnimation = () => {
   );
 };
 
-// Heartbeat Transition Component - 
+// Heartbeat Transition Component
 const HeartbeatTransition = () => {
   return (
     <motion.div
@@ -277,9 +325,7 @@ const HeartbeatTransition = () => {
       exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/95 flex items-center justify-center z-50"
     >
-      {/* Multiple pulsing layers for depth */}
       <div className="relative">
-        {/* Outer pulse ring */}
         <motion.div
           animate={{
             scale: [1, 1.5, 1],
@@ -287,14 +333,13 @@ const HeartbeatTransition = () => {
           }}
           transition={{
             duration: 1.5,
-            repeat: 10, // 3 total beats
+            repeat: 10,
             ease: "easeInOut",
           }}
           className="absolute inset-0 w-64 h-64 -translate-x-32 -translate-y-32 
                      rounded-full bg-camp-cyan/30 blur-xl"
         />
         
-        {/* Middle pulse ring */}
         <motion.div
           animate={{
             scale: [1, 1.3, 1],
@@ -310,7 +355,6 @@ const HeartbeatTransition = () => {
                      rounded-full bg-camp-cyan/50 blur-lg"
         />
         
-        {/* Core heartbeat */}
         <motion.div
           animate={{
             scale: [3, 3.2, 0.9, 3],
@@ -329,25 +373,8 @@ const HeartbeatTransition = () => {
           className="w-32 h-32 rounded-full bg-gradient-to-br from-camp-cyan to-camp-pink 
                      shadow-2xl shadow-camp-cyan/50"
         />
-        
-        {/* Center countdown */}
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 0.95, 1],
-          }}
-          transition={{
-            duration: 10,
-            repeat: 10,
-            ease: "easeInOut",
-          }}
-          className="absolute inset-0 flex items-center justify-center"
-        >
-          <span className="text-6xl font-black text-white/90"></span>
-
-        </motion.div>
       </div>
       
-      {/* Text below */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -380,9 +407,8 @@ const RevealSpectacle = ({ snapshot, phase }: any) => {
               className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4"
             >
               {(() => {
-                // Phase 1: Show teams in randomized order to hide rankings
                 const teamsToShow = [...snapshot.teams]
-                  .sort(() => Math.random() - 0.5); // Randomize order
+                  .sort(() => Math.random() - 0.5);
                 
                 return teamsToShow.map((team: any, index: number) => (
                   <TeamRevealCard
@@ -403,13 +429,13 @@ const RevealSpectacle = ({ snapshot, phase }: any) => {
             <HeartbeatTransition />
           )}
 
-          {phase >= 2 && phase < 3 && (  // <- Also change this condition
-        <Top3Spotlight teams={snapshot.teams.slice(0, 3)} />
+          {phase >= 2 && phase < 3 && (
+            <Top3Spotlight teams={snapshot.teams.slice(0, 3)} />
           )}
 
-          {/* Phase 3: Winner Celebration */}
+          {/* Phase 3: Winner Celebration with Game Title */}
           {phase >= 3 && (
-            <WinnerCelebration winner={snapshot.teams[0]} />
+            <WinnerCelebration winner={snapshot.teams[0]} gameTitle={snapshot.game_title} />
           )}
         </motion.div>
       </div>
@@ -417,7 +443,7 @@ const RevealSpectacle = ({ snapshot, phase }: any) => {
   );
 };
 
-// Team Reveal Card Component  
+// Team Reveal Card Component
 const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, phase = 1 }: any) => {
   const getTeamColorClass = (teamName: string) => {
     const name = teamName.toLowerCase();
@@ -455,7 +481,6 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
           '--leader-color': highlighted ? team.color : 'transparent'
         } as React.CSSProperties}
       >
-        {/* Rank Badge - Hidden in Phase 1 */}
         {!hideRanking && (
           <div className="absolute top-4 right-4">
             <Badge variant={rank === 1 ? "default" : "secondary"} className="text-lg font-bold px-3 py-1">
@@ -465,7 +490,6 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
           </div>
         )}
 
-        {/* Special Icons for Top 3 - Hidden in Phase 1 */}
         {!hideRanking && rank <= 3 && (
           <div className="absolute top-4 left-4">
             {rank === 1 && <Crown className="w-8 h-8 text-team-yellow animate-bounce" />}
@@ -494,7 +518,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
               <TrendingUp className={`w-6 h-6 text-${teamColorClass}`} />
-              <span className="text-lg font-semibold text-muted-foreground">Total de Pontos</span>
+              <span className="text-lg font-semibold text-muted-foreground">Pontos no Jogo</span>
             </div>
             <motion.div 
               initial={{ scale: 0 }}
@@ -502,7 +526,6 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
               transition={{ delay: delay + 0.5, type: "spring" }}
               className="relative"
             >
-              {/* Slot machine container */}
               <div 
                 className={`text-6xl font-black ${phase === 1 ? 'font-mono' : ''}`}
                 style={{ color: team.color }}
@@ -531,7 +554,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
   );
 };
 
-// Top 3 Spotlight Component - Fixed centering and scaling
+// Top 3 Spotlight Component
 const Top3Spotlight = ({ teams }: any) => {
   const getTeamColorClass = (teamName: string) => {
     const name = teamName?.toLowerCase() || '';
@@ -556,7 +579,6 @@ const Top3Spotlight = ({ teams }: any) => {
       animate={{ opacity: 1, scale: 1 }}
       className="fixed inset-0 bg-gradient-dark/90 backdrop-blur-sm z-20 overflow-hidden"
     >
-      {/* True centering container that accounts for sidebar */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="flex flex-col items-center justify-center scale-[1.2] transform-gpu">
           <motion.h2
@@ -564,100 +586,103 @@ const Top3Spotlight = ({ teams }: any) => {
             animate={{ y: 0 }}
             className="text-4xl md:text-6xl font-black bg-gradient-camp bg-clip-text text-transparent mb-16 md:mb-20 text-center whitespace-nowrap"
           >
-            TOP 3 DO DIA! 🏆
+            TOP 3 DO JOGO! 🏆
           </motion.h2>
           
           <div className="flex justify-center items-end gap-4 md:gap-8">
             {/* 2nd Place */}
-            <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="text-center"
-            >
-              {/* Avatar for 2nd place */}
+            {teams[1] && (
               <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.7, type: "spring" }}
-                className="mb-4"
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-center"
               >
-                <Avatar className="w-20 md:w-24 h-20 md:h-24 mx-auto border-4 shadow-lg" style={{ borderColor: teams[1]?.color }}>
-                  <AvatarImage src={teams[1]?.avatar_url} alt={`${teams[1]?.name} team avatar`} />
-                  <AvatarFallback 
-                    className={`bg-${getTeamColorClass(teams[1]?.name)} text-white font-bold text-xl md:text-2xl`}
-                  >
-                    {teams[1]?.name?.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.7, type: "spring" }}
+                  className="mb-4"
+                >
+                  <Avatar className="w-20 md:w-24 h-20 md:h-24 mx-auto border-4 shadow-lg" style={{ borderColor: teams[1]?.color }}>
+                    <AvatarImage src={teams[1]?.avatar_url} alt={`${teams[1]?.name} team avatar`} />
+                    <AvatarFallback 
+                      className={`bg-${getTeamColorClass(teams[1]?.name)} text-white font-bold text-xl md:text-2xl`}
+                    >
+                      {teams[1]?.name?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </motion.div>
+                <div className="text-2xl md:text-3xl font-black text-muted-foreground mb-4">2</div>
+                <h3 className="text-xl md:text-2xl font-bold text-foreground mb-2" style={{ color: teams[1]?.color }}>
+                  {teams[1]?.name}
+                </h3>
+                <p className="text-lg md:text-xl text-muted-foreground">{teams[1]?.total_points} pts</p>
               </motion.div>
-              <div className="text-2xl md:text-3xl font-black text-muted-foreground mb-4">2</div>
-              <h3 className="text-xl md:text-2xl font-bold text-foreground mb-2" style={{ color: teams[1]?.color }}>
-                {teams[1]?.name}
-              </h3>
-              <p className="text-lg md:text-xl text-muted-foreground">{teams[1]?.total_points} pts</p>
-            </motion.div>
+            )}
 
             {/* 1st Place */}
-            <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 1 }}
-              className="text-center"
-            >
-              {/* Avatar for 1st place */}
+            {teams[0] && (
               <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 1.2, type: "spring" }}
-                className="mb-4"
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 1 }}
+                className="text-center"
               >
-                <Avatar className="w-28 md:w-32 h-28 md:h-32 mx-auto border-4 shadow-2xl" style={{ borderColor: teams[0]?.color }}>
-                  <AvatarImage src={teams[0]?.avatar_url} alt={`${teams[0]?.name} team avatar`} />
-                  <AvatarFallback 
-                    className={`bg-${getTeamColorClass(teams[0]?.name)} text-white font-bold text-3xl md:text-4xl`}
-                  >
-                    {teams[0]?.name?.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 1.2, type: "spring" }}
+                  className="mb-4"
+                >
+                  <Avatar className="w-28 md:w-32 h-28 md:h-32 mx-auto border-4 shadow-2xl" style={{ borderColor: teams[0]?.color }}>
+                    <AvatarImage src={teams[0]?.avatar_url} alt={`${teams[0]?.name} team avatar`} />
+                    <AvatarFallback 
+                      className={`bg-${getTeamColorClass(teams[0]?.name)} text-white font-bold text-3xl md:text-4xl`}
+                    >
+                      {teams[0]?.name?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </motion.div>
+                <div className="text-3xl md:text-4xl font-black text-team-yellow mb-2">1</div>
+                <Crown className="w-10 md:w-12 h-10 md:h-12 text-team-yellow mx-auto mb-2 animate-bounce" />
+                <h3 className="text-2xl md:text-3xl font-black text-foreground mb-2" style={{ color: teams[0]?.color }}>
+                  {teams[0]?.name}
+                </h3>
+                <p className="text-xl md:text-2xl text-team-yellow font-bold">{teams[0]?.total_points} pts</p>
               </motion.div>
-              <div className="text-3xl md:text-4xl font-black text-team-yellow mb-2">1</div>
-              <Crown className="w-10 md:w-12 h-10 md:h-12 text-team-yellow mx-auto mb-2 animate-bounce" />
-              <h3 className="text-2xl md:text-3xl font-black text-foreground mb-2" style={{ color: teams[0]?.color }}>
-                {teams[0]?.name}
-              </h3>
-              <p className="text-xl md:text-2xl text-team-yellow font-bold">{teams[0]?.total_points} pts</p>
-            </motion.div>
+            )}
 
             {/* 3rd Place */}
-            <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              className="text-center"
-            >
-              {/* Avatar for 3rd place */}
+            {teams[2] && (
               <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 1.0, type: "spring" }}
-                className="mb-4"
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="text-center"
               >
-                <Avatar className="w-16 md:w-20 h-16 md:h-20 mx-auto border-4 shadow-lg" style={{ borderColor: teams[2]?.color }}>
-                  <AvatarImage src={teams[2]?.avatar_url} alt={`${teams[2]?.name} team avatar`} />
-                  <AvatarFallback 
-                    className={`bg-${getTeamColorClass(teams[2]?.name)} text-white font-bold text-lg md:text-xl`}
-                  >
-                    {teams[2]?.name?.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 1.0, type: "spring" }}
+                  className="mb-4"
+                >
+                  <Avatar className="w-16 md:w-20 h-16 md:h-20 mx-auto border-4 shadow-lg" style={{ borderColor: teams[2]?.color }}>
+                    <AvatarImage src={teams[2]?.avatar_url} alt={`${teams[2]?.name} team avatar`} />
+                    <AvatarFallback 
+                      className={`bg-${getTeamColorClass(teams[2]?.name)} text-white font-bold text-lg md:text-xl`}
+                    >
+                      {teams[2]?.name?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </motion.div>
+                <div className="text-xl md:text-2xl font-black text-team-orange mb-4">3</div>
+                <h3 className="text-lg md:text-xl font-bold text-foreground mb-2" style={{ color: teams[2]?.color }}>
+                  {teams[2]?.name}
+                </h3>
+                <p className="text-base md:text-lg text-muted-foreground">{teams[2]?.total_points} pts</p>
               </motion.div>
-              <div className="text-xl md:text-2xl font-black text-team-orange mb-4">3</div>
-              <h3 className="text-lg md:text-xl font-bold text-foreground mb-2" style={{ color: teams[2]?.color }}>
-                {teams[2]?.name}
-              </h3>
-              <p className="text-base md:text-lg text-muted-foreground">{teams[2]?.total_points} pts</p>
-            </motion.div>
+            )}
           </div>
         </div>
       </div>
@@ -665,8 +690,8 @@ const Top3Spotlight = ({ teams }: any) => {
   );
 };
 
-// Winner Celebration Component
-const WinnerCelebration = ({ winner }: any) => {
+// Winner Celebration Component - NOW WITH GAME TITLE
+const WinnerCelebration = ({ winner, gameTitle }: any) => {
   return (
     <motion.div
       initial={{ scale: 0, rotate: -180 }}
@@ -678,10 +703,20 @@ const WinnerCelebration = ({ winner }: any) => {
         <motion.h1
           animate={{ scale: [1, 1.1, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="text-8xl font-black bg-gradient-camp bg-clip-text text-transparent mb-8 drop-shadow-2xl"
+          className="text-8xl font-black bg-gradient-camp bg-clip-text text-transparent mb-4 drop-shadow-2xl"
         >
-          🏆 A EQUIPE QUE MAIS PONTUOU HOJE FOI 🏆
+          🏆 EQUIPE CAMPEÃ! 🏆
         </motion.h1>
+        
+        {/* Game Title Display */}
+        <motion.h2
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-3xl md:text-4xl font-bold text-muted-foreground mb-8"
+        >
+          Vencedor de: <span className="text-camp-cyan">{gameTitle}</span>
+        </motion.h2>
         
         <motion.div
           initial={{ y: 50, opacity: 0 }}
@@ -734,9 +769,18 @@ const RevealComplete = ({ snapshot, onReset }: any) => {
         >
           <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
             <CardContent className="text-center space-y-8 p-8">
-              <h1 className="text-6xl font-black bg-gradient-camp bg-clip-text text-transparent mb-8">
+              <h1 className="text-6xl font-black bg-gradient-camp bg-clip-text text-transparent mb-4">
                 Apuração Completa! ✨
               </h1>
+              
+              <div className="space-y-2 mb-6">
+                <p className="text-2xl text-muted-foreground">
+                  Jogo: <span className="text-camp-cyan font-bold">{snapshot.game_title}</span>
+                </p>
+                <p className="text-xl">
+                  Parabéns à equipe <span style={{ color: snapshot.teams[0].color }} className="font-bold">{snapshot.teams[0].name}</span>!
+                </p>
+              </div>
               
               <div className="space-y-4">
                 <Button
@@ -745,12 +789,12 @@ const RevealComplete = ({ snapshot, onReset }: any) => {
                            bg-gradient-camp hover:opacity-90
                            transform hover:scale-105 active:scale-95 transition-all"
                 >
-                  Nova Apuração
+                  <Gamepad2 className="w-6 h-6 mr-2" />
+                  Revelar Outro Jogo
                 </Button>
                 
                 <div className="text-muted-foreground">
-                  <p>Parabéns a equipe {snapshot.teams[0].name}!</p>
-                  <p className="text-sm mt-2">"Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1</p>
+                  <p className="text-sm mt-4">"Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1</p>
                 </div>
               </div>
             </CardContent>
@@ -809,8 +853,6 @@ const SpotlightEffect = ({ active }: { active: boolean }) => {
 };
 
 // Animated Counter Component
-// Animated Counter Component
-// Animated Counter Component - Slot Machine Style
 const AnimatedCounter = ({ target, phase = 1, hideActualScore = false }: { target: number, phase?: number, hideActualScore?: boolean }) => {
   const [display, setDisplay] = useState<string | number>(0);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -819,32 +861,28 @@ const AnimatedCounter = ({ target, phase = 1, hideActualScore = false }: { targe
     if (hideActualScore) {
       // Phase 1: Slot machine effect
       setIsSpinning(true);
-      const duration = 10000; // 5 seconds total
+      const duration = 10000; // 10 seconds
       let elapsed = 0;
-      let changeSpeed = 50; // Start fast
+      let changeSpeed = 50;
       
       const timer = setInterval(() => {
         elapsed += changeSpeed;
         
         if (elapsed >= duration) {
-          // Final dramatic pause
           setDisplay("???");
           setIsSpinning(false);
           clearInterval(timer);
           return;
         }
         
-        // Gradually slow down the changes (slot machine slowing effect)
         const progress = elapsed / duration;
-        changeSpeed = 50 + (progress * 150); // Slows from 50ms to 200ms
+        changeSpeed = 50 + (progress * 150);
         
-        // Chance to update decreases over time (creates slowing effect)
         const updateChance = 1 - (progress * 0.8);
         
         if (Math.random() < updateChance) {
-          // Generate realistic camp scores
-          const minScore = 50;
-          const maxScore = 500;
+          const minScore = 10;
+          const maxScore = 200; // Lower for individual games
           const fakeScore = Math.floor(Math.random() * (maxScore - minScore + 1)) + minScore;
           setDisplay(fakeScore);
         }
@@ -852,7 +890,7 @@ const AnimatedCounter = ({ target, phase = 1, hideActualScore = false }: { targe
 
       return () => clearInterval(timer);
     } else {
-      // Phase 2+: Show actual score immediately
+      // Phase 2+: Show actual score
       setIsSpinning(false);
       setDisplay(target);
     }
@@ -865,4 +903,4 @@ const AnimatedCounter = ({ target, phase = 1, hideActualScore = false }: { targe
   );
 };
 
-export default DayReveal;
+export default GameReveal;
