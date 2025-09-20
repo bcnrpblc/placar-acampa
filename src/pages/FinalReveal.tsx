@@ -884,8 +884,8 @@ const FinalRevealComplete = ({
                 </Button>
                 
                 <div className="text-muted-foreground">
-                  <p className="text-lg">"Combati o bom combate, acabei a carreira, guardei a fé"</p>
-                  <p className="text-sm mt-2">2 Timóteo 4:7</p>
+                  <p className="text-lg">"Sede, pois, imitadores de Deus, como filhos amados"</p>
+                  <p className="text-sm mt-2">Efésios 5:1</p>
                 </div>
               </div>
             </CardContent>
