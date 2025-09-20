@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Users, TrendingUp } from "lucide-react";
+import { Trophy, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import * as React from "react";
 
@@ -105,13 +105,9 @@ export const TeamCard = ({ team, rank, isLeader, previousPoints }: TeamCardProps
             </AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-1" style={{ color: team.color }}>
+            <h2 className="text-2xl font-bold" style={{ color: team.color }}>
               {team.name}
             </h2>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Users className="w-4 h-4" />
-              <span>{team.top_players?.length || 0} active players</span>
-            </div>
           </div>
         </div>
       </CardHeader>
@@ -129,27 +125,7 @@ export const TeamCard = ({ team, rank, isLeader, previousPoints }: TeamCardProps
           </div>
         </div>
 
-        {/* Top Players */}
-        {team.top_players && team.top_players.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">
-              Top Performers
-            </h4>
-            <div className="space-y-2">
-              {team.top_players.slice(0, 3).map((player, index) => (
-                <div key={player.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full bg-${teamColorClass}`} />
-                    <span className="font-medium">{player.name}</span>
-                  </div>
-                  <Badge variant="outline" className="font-bold">
-                    {player.points}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Top Players - Removed Entirely */}
       </CardContent>
     </Card>
   );

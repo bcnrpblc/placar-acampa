@@ -19,7 +19,7 @@ const PublicLeaderboard = () => {
   const [activeViewers, setActiveViewers] = useState(1);
   const navigate = useNavigate();
 
-  // Fetch teams with their current points
+  // Fetch teams with their current points (teams only, no individual players)
   const fetchTeamData = async () => {
     try {
       const { data: teamsData, error: teamsError } = await supabase
@@ -41,66 +41,13 @@ const PublicLeaderboard = () => {
       if (teamsError) throw teamsError;
       if (aggregatesError) throw aggregatesError;
 
-      // Get secure player data (without phone numbers)
-      const { data: allPlayersData } = await supabase.rpc('get_players_public');
-      
-      // Get top players for each team using secure player data
-      const { data: scoresData } = await supabase
-        .from('score_entries')
-        .select(`
-          player_id,
-          team_id,
-          points
-        `)
-        .not('player_id', 'is', null);
-
-      // Create player lookup map
-      const playersMap = new Map();
-      if (allPlayersData) {
-        allPlayersData.forEach((player: any) => {
-          playersMap.set(player.id, { name: player.name, team_id: player.team_id });
-        });
-      }
-
-      // Group players by team and sum their points
-      const playersByTeam: Record<string, Array<{id: string; name: string; points: number}>> = {};
-      
-      if (scoresData) {
-        scoresData.forEach(entry => {
-          if (!entry.player_id) return;
-          
-          const player = playersMap.get(entry.player_id);
-          if (!player) return;
-          
-          const teamId = entry.team_id;
-          if (!playersByTeam[teamId]) {
-            playersByTeam[teamId] = [];
-          }
-          
-          const existingPlayer = playersByTeam[teamId].find(p => p.id === entry.player_id);
-          if (existingPlayer) {
-            existingPlayer.points += entry.points;
-          } else {
-            playersByTeam[teamId].push({
-              id: entry.player_id,
-              name: player.name,
-              points: entry.points
-            });
-          }
-        });
-      }
-
-      // Combine team data with aggregates and top players
+      // Combine team data with aggregates (no player data)
       const teamsWithPoints: TeamWithAggregate[] = (teamsData || []).map(team => {
         const aggregate = aggregatesData?.find(a => a.team_id === team.id);
-        const topPlayers = (playersByTeam[team.id] || [])
-          .sort((a, b) => b.points - a.points)
-          .slice(0, 3);
 
         return {
           ...team,
-          total_points: aggregate?.total_points || 0,
-          top_players: topPlayers
+          total_points: aggregate?.total_points || 0
         };
       });
 
@@ -139,7 +86,7 @@ const PublicLeaderboard = () => {
       )
       .subscribe();
 
-    // Subscribe to score_entries for live updates
+    // Subscribe to score_entries for live updates (affects team totals)
     const scoresChannel = supabase
       .channel('score_entries_changes')
       .on(
