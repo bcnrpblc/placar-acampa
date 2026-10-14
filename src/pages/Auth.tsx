@@ -52,8 +52,8 @@ const Auth = () => {
     
     if (!email || !password) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in all fields",
+        title: "Dados inválidos",
+        description: "Preencha todos os campos",
         variant: "destructive"
       });
       return;
@@ -71,8 +71,8 @@ const Auth = () => {
         if (error) throw error;
 
         toast({
-          title: "Login Successful",
-          description: "Welcome back!",
+          title: "Login realizado",
+          description: "Bem-vindo de volta!",
         });
       } else {
         const redirectUrl = `${window.location.origin}/`;
@@ -88,13 +88,13 @@ const Auth = () => {
         if (error) throw error;
 
         toast({
-          title: "Account Created",
-          description: "Please check your email to confirm your account.",
+          title: "Conta criada",
+          description: "Verifique seu e-mail para confirmar a conta.",
         });
       }
     } catch (error: any) {
       toast({
-        title: isLogin ? "Login Failed" : "Sign Up Failed",
+        title: isLogin ? "Falha no login" : "Falha no cadastro",
         description: error.message,
         variant: "destructive"
       });
@@ -107,8 +107,8 @@ const Auth = () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({
-        title: "Error",
-        description: "Failed to sign out",
+        title: "Erro",
+        description: "Falha ao sair",
         variant: "destructive"
       });
     }
@@ -132,7 +132,7 @@ const Auth = () => {
                 onClick={() => navigate('/admin')} 
                 className="bg-camp-cyan text-camp-dark hover:bg-camp-cyan/90"
               >
-                Go to Admin
+                Ir para o Admin
               </Button>
               <Button 
                 onClick={handleSignOut}
@@ -174,22 +174,22 @@ const Auth = () => {
               <Lock className="w-8 h-8 text-camp-cyan" />
             </div>
             <CardTitle className="text-2xl font-bold bg-gradient-camp bg-clip-text text-transparent">
-              {isLogin ? "Admin Login" : "Create Account"}
+              {isLogin ? "Login do Admin" : "Criar conta"}
             </CardTitle>
             <p className="text-muted-foreground">
-              {isLogin ? "Sign in to access the admin panel" : "Create an admin account"}
+              {isLogin ? "Entre para acessar o painel de administração" : "Crie uma conta de administrador"}
             </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">E-mail</Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email..."
+                  placeholder="Digite seu e-mail..."
                   required
                 />
               </div>
@@ -223,7 +223,7 @@ const Auth = () => {
                 disabled={loading}
                 className="w-full bg-camp-cyan text-camp-dark hover:bg-camp-cyan/90"
               >
-                {loading ? "Carregando..." : (isLogin ? "Sign In" : "Sign Up")}
+                {loading ? "Carregando..." : (isLogin ? "Entrar" : "Cadastrar")}
               </Button>
 
               <div className="text-center">

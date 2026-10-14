@@ -8,6 +8,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import DayReveal from "./pages/DayReveal";
 import Auth from "./pages/Auth";
 import RoleManager from "./pages/RoleManager";
+import Home from "./pages/Home";
+import AdminEventDetail from "./pages/AdminEventDetail";
 import NotFound from "./pages/NotFound";
 import GameReveal from './pages/GameReveal';
 import FinalReveal from './pages/FinalReveal.tsx';
@@ -21,13 +23,15 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<PublicLeaderboard />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/e/:slug" element={<PublicLeaderboard />} />
+          <Route path="/e/:slug/reveal" element={<DayReveal />} />
+          <Route path="/e/:slug/game-reveal" element={<GameReveal />} />
+          <Route path="/e/:slug/final-reveal" element={<FinalReveal />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/events/:eventId" element={<AdminEventDetail />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin/roles" element={<RoleManager />} />
-          <Route path="/reveal" element={<DayReveal />} />
-          <Route path="/game-reveal" element={<GameReveal />} />
-          <Route path="/final-reveal" element={<FinalReveal />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

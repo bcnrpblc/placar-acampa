@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from '@/integrations/supabase/client';
+import { useEventId } from '@/lib/useEventId';
+import { useRevealScreen } from '@/lib/useRevealChannel';
 import { Trophy, Star, Sparkles, Crown, ArrowLeft, TrendingUp, Gamepad2, ChevronDown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import * as React from "react";
 
@@ -16,18 +17,19 @@ const GameReveal = () => {
   const [games, setGames] = useState<any[]>([]);
   const [snapshot, setSnapshot] = useState<any>(null);
   const [currentPhase, setCurrentPhase] = useState(1);
-  const navigate = useNavigate();
+  const { eventId } = useEventId();
 
   // Load available games on component mount
   useEffect(() => {
-    loadGames();
-  }, []);
+    if (eventId) loadGames();
+  }, [eventId]);
 
   const loadGames = async () => {
     try {
       const { data, error } = await supabase
         .from('games')
         .select('id, title')
+        .eq('event_id', eventId!)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -37,27 +39,27 @@ const GameReveal = () => {
     }
   };
 
-  const handleStartReveal = async () => {
-    if (!selectedGame) return;
+  const handleStartReveal = async (gameId: string) => {
+    if (!gameId) return;
     
     setRevealState('locking');
     
     try {
       // Get the selected game details
-      const selectedGameData = games.find(g => g.id === selectedGame);
+      const selectedGameData = games.find(g => g.id === gameId);
       
       // Fetch game-specific scores using the view
       const { data: gameScores, error } = await supabase
         .from('game_team_scores')
         .select('*')
-        .eq('game_id', selectedGame)
+        .eq('game_id', gameId)
         .order('total_points', { ascending: false });
 
       if (error) throw error;
 
       if (gameScores && gameScores.length > 0) {
         const formattedSnapshot = {
-          game_id: selectedGame,
+          game_id: gameId,
           game_title: selectedGameData?.title || gameScores[0].game_title,
           teams: gameScores.map((score: any, index: number) => ({
             id: score.team_id,
@@ -78,7 +80,7 @@ const GameReveal = () => {
         }, 2000);
       } else {
         // No scores found for this game
-        alert('Nenhuma pontuação encontrada para este jogo.');
+        console.warn('Nenhuma pontuação encontrada para este jogo.');
         setRevealState('selecting');
       }
     } catch (error) {
@@ -145,20 +147,10 @@ const GameReveal = () => {
     setCurrentPhase(1);
   };
 
+  useRevealScreen(eventId, 'game', ({ gameId }) => handleStartReveal(gameId ?? ''));
+
   return (
     <div className="min-h-screen bg-gradient-dark relative overflow-hidden">
-      {/* Back Button */}
-      <div className="absolute top-4 left-4 z-50">
-        <Button
-          onClick={() => navigate('/')}
-          variant="outline"
-          size="sm"
-          className="bg-card/50 backdrop-blur-sm border-camp-cyan/20 text-foreground hover:bg-card/80"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar
-        </Button>
-      </div>
 
       {/* Animated Background */}
       <div className="absolute inset-0">
@@ -168,12 +160,7 @@ const GameReveal = () => {
 
       <AnimatePresence mode="wait">
         {revealState === 'selecting' && (
-          <GameSelectionPanel
-            games={games}
-            selectedGame={selectedGame}
-            onGameChange={setSelectedGame}
-            onStartReveal={handleStartReveal}
-          />
+          <GameSelectionPanel />
         )}
 
         {revealState === 'locking' && (
@@ -190,7 +177,6 @@ const GameReveal = () => {
         {revealState === 'complete' && snapshot && (
           <RevealComplete
             snapshot={snapshot}
-            onReset={handleReset}
           />
         )}
       </AnimatePresence>
@@ -199,7 +185,7 @@ const GameReveal = () => {
 };
 
 // Game Selection Panel Component
-const GameSelectionPanel = ({ games, selectedGame, onGameChange, onStartReveal }: any) => {
+const GameSelectionPanel = () => {
   return (
     <div className="min-h-screen bg-gradient-glow">
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
@@ -222,64 +208,10 @@ const GameSelectionPanel = ({ games, selectedGame, onGameChange, onStartReveal }
                 "Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1
               </div>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <label className="text-foreground text-lg mb-3 block font-semibold">
-                  Selecione o Jogo
-                </label>
-                <div className="relative">
-                  <select
-                    value={selectedGame}
-                    onChange={(e) => onGameChange(e.target.value)}
-                    className="w-full bg-card/50 border border-border text-foreground text-lg py-3 px-4 rounded-md appearance-none cursor-pointer
-                             hover:bg-card/70 transition-colors focus:outline-none focus:ring-2 focus:ring-camp-cyan"
-                  >
-                    <option value="">-- Escolha um jogo --</option>
-                    {games.map((game: any) => (
-                      <option key={game.id} value={game.id}>
-                        {game.title}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
-                </div>
-              </div>
-
-              {selectedGame && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Card className="bg-camp-cyan/10 border-camp-cyan/30">
-                    <CardContent className="flex items-center gap-3 p-4">
-                      <Trophy className="w-6 h-6 text-camp-cyan" />
-                      <div>
-                        <p className="text-camp-cyan font-semibold">
-                          Jogo selecionado: {games.find(g => g.id === selectedGame)?.title}
-                        </p>
-                        <p className="text-muted-foreground text-sm mt-1">
-                          Pronto para revelar os vencedores!
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-
-              <Button
-                onClick={onStartReveal}
-                disabled={!selectedGame}
-                className="w-full py-6 text-4xl font-black rounded-xl
-                         bg-gradient-camp hover:opacity-90
-                         transform hover:scale-105 active:scale-95 transition-all
-                         shadow-elevation disabled:opacity-50 disabled:cursor-not-allowed
-                         disabled:transform-none"
-              >
-                <Sparkles className="w-8 h-8 mr-3" />
-                INICIAR APURAÇÃO
-                <Sparkles className="w-8 h-8 ml-3" />
-              </Button>
+            <CardContent>
+              <p className="text-center text-2xl md:text-4xl font-bold text-camp-cyan animate-pulse">
+                Aguardando o início da apuração...
+              </p>
             </CardContent>
           </Card>
         </motion.div>
@@ -758,7 +690,7 @@ const WinnerCelebration = ({ winner, gameTitle }: any) => {
 };
 
 // Reveal Complete Component
-const RevealComplete = ({ snapshot, onReset }: any) => {
+const RevealComplete = ({ snapshot }: any) => {
   return (
     <div className="min-h-screen bg-gradient-glow">
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
@@ -783,15 +715,6 @@ const RevealComplete = ({ snapshot, onReset }: any) => {
               </div>
               
               <div className="space-y-4">
-                <Button
-                  onClick={onReset}
-                  className="px-8 py-4 text-xl font-bold rounded-xl
-                           bg-gradient-camp hover:opacity-90
-                           transform hover:scale-105 active:scale-95 transition-all"
-                >
-                  <Gamepad2 className="w-6 h-6 mr-2" />
-                  Revelar Outro Jogo
-                </Button>
                 
                 <div className="text-muted-foreground">
                   <p className="text-sm mt-4">"Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1</p>

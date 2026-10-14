@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AdminPanel } from "@/components/AdminPanel";
+import AdminEvents from "./AdminEvents";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Lock } from "lucide-react";
@@ -182,7 +182,7 @@ const AdminDashboard = () => {
                   variant="outline"
                   className="flex-1"
                 >
-                  Sign Out
+                  Sair
                 </Button>
               </div>
               
@@ -196,7 +196,7 @@ const AdminDashboard = () => {
     );
   }
 
-  return <AdminPanel onBack={() => navigate('/')} />;
+  return <AdminEvents />;
 
 };
 

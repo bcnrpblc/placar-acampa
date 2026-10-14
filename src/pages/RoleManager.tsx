@@ -6,6 +6,7 @@ import { ArrowLeft, Users, Shield, ShieldCheck, ShieldX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import type { User, Session } from '@supabase/supabase-js';
+import { isSuperadminEmail } from "@/lib/auth";
 
 interface AuthUser {
   id: string;
@@ -15,6 +16,7 @@ interface AuthUser {
 
 interface UserWithRole extends AuthUser {
   is_admin: boolean;
+  is_superadmin: boolean;
 }
 
 const RoleManager = () => {
@@ -75,8 +77,8 @@ const RoleManager = () => {
       console.error('Error fetching users:', error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch users"
+        title: "Erro",
+        description: "Falha ao carregar usuários"
       });
     } finally {
       setLoading(false);
@@ -100,79 +102,78 @@ const RoleManager = () => {
 
       if (roleError) throw roleError;
 
-      // Combine data
-      const usersWithRoles = profilesData.map(profile => ({
-        id: profile.id,
-        email: profile.email || 'No email',
-        created_at: profile.created_at,
-        is_admin: roleData.some(role => role.user_id === profile.id && role.role === 'admin')
-      }));
+      const usersWithRoles = (profilesData ?? []).map(profile => {
+        const email = profile.email || 'No email';
+        return {
+          id: profile.id,
+          email,
+          created_at: profile.created_at,
+          is_admin: (roleData ?? []).some(
+            role => role.user_id === profile.id && role.role === 'admin'
+          ),
+          is_superadmin: isSuperadminEmail(email),
+        };
+      });
 
       setUsers(usersWithRoles);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch users"
+        title: "Erro",
+        description: "Falha ao carregar usuários"
       });
     } finally {
       setLoadingUsers(false);
     }
   };
 
-  const toggleAdminRole = async (userId: string, isCurrentlyAdmin: boolean) => {
+  const toggleAdminRole = async (target: UserWithRole) => {
+    if (target.is_superadmin && target.is_admin) {
+      toast({
+        variant: "destructive",
+        title: "Não permitido",
+        description: "A conta superadmin não pode ser rebaixada",
+      });
+      return;
+    }
+
     try {
-      let result;
-      
-      if (isCurrentlyAdmin) {
-        // Remove admin role using security definer function
-        const { data, error } = await supabase
-          .rpc('admin_remove_role', { 
-            target_user_id: userId, 
-            role_to_remove: 'admin' 
-          });
+      if (target.is_admin) {
+        const { data, error } = await supabase.rpc('admin_remove_role', {
+          target_user_id: target.id,
+          role_to_remove: 'admin',
+        });
 
         if (error) throw error;
-        result = data;
-        
-        if (result) {
-          toast({
-            title: "Success",
-            description: "Admin access revoked"
-          });
-        } else {
-          throw new Error("Operation not permitted");
-        }
+        if (!data) throw new Error("Operação não permitida");
+
+        toast({
+          title: "Sucesso",
+          description: "Acesso de administrador removido",
+        });
       } else {
-        // Add admin role using security definer function
-        const { data, error } = await supabase
-          .rpc('admin_add_role', { 
-            target_user_id: userId, 
-            role_to_add: 'admin' 
-          });
+        const { data, error } = await supabase.rpc('admin_add_role', {
+          target_user_id: target.id,
+          role_to_add: 'admin',
+        });
 
         if (error) throw error;
-        result = data;
-        
-        if (result) {
-          toast({
-            title: "Success", 
-            description: "Admin access granted"
-          });
-        } else {
-          throw new Error("Operation not permitted");
-        }
+        if (!data) throw new Error("Operação não permitida");
+
+        toast({
+          title: "Sucesso",
+          description: "Acesso de administrador concedido",
+        });
       }
 
-      // Refresh users list
       fetchUsers();
     } catch (error) {
       console.error('Error updating role:', error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to update user role"
+        title: "Erro",
+        description: "Falha ao atualizar o papel do usuário",
       });
     }
   };
@@ -182,7 +183,7 @@ const RoleManager = () => {
       <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-camp-cyan mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Checking authentication...</p>
+          <p className="text-muted-foreground">Verificando autenticação...</p>
         </div>
       </div>
     );
@@ -197,10 +198,10 @@ const RoleManager = () => {
               <ShieldX className="w-8 h-8 text-red-500" />
             </div>
             <CardTitle className="text-2xl font-bold text-red-400">
-              Access Denied
+              Acesso Negado
             </CardTitle>
             <p className="text-muted-foreground">
-              Admin access required for role management
+              É necessário ser administrador para gerenciar papéis
             </p>
           </CardHeader>
           <CardContent>
@@ -209,7 +210,7 @@ const RoleManager = () => {
               className="w-full bg-camp-cyan text-camp-dark hover:bg-camp-cyan/90"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Admin Panel
+              Voltar ao Painel Admin
             </Button>
           </CardContent>
         </Card>
@@ -228,7 +229,7 @@ const RoleManager = () => {
             className="mb-4 bg-card/50 backdrop-blur-sm"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Admin Panel
+            Voltar ao Painel Admin
           </Button>
           
           <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
@@ -239,10 +240,10 @@ const RoleManager = () => {
                 </div>
                 <div>
                   <CardTitle className="text-xl font-bold bg-gradient-camp bg-clip-text text-transparent">
-                    Role Manager
+                    Gerenciar Papéis
                   </CardTitle>
                   <p className="text-muted-foreground text-sm">
-                    Manage admin access for users
+                    Gerencie o acesso de administrador dos usuários
                   </p>
                 </div>
               </div>
@@ -252,7 +253,7 @@ const RoleManager = () => {
               {loadingUsers ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-camp-cyan mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading users...</p>
+                  <p className="text-muted-foreground">Carregando usuários...</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -272,21 +273,30 @@ const RoleManager = () => {
                         <div>
                           <p className="font-medium">{userData.email}</p>
                           <p className="text-xs text-muted-foreground">
-                            {userData.is_admin ? 'Administrator' : 'Regular User'}
+                            {userData.is_superadmin
+                              ? 'Superadmin'
+                              : userData.is_admin
+                                ? 'Administrador'
+                                : 'Usuário comum'}
                           </p>
                         </div>
                       </div>
                       
                       <Button
-                        onClick={() => toggleAdminRole(userData.id, userData.is_admin)}
+                        onClick={() => toggleAdminRole(userData)}
                         variant={userData.is_admin ? "destructive" : "default"}
                         size="sm"
+                        disabled={userData.is_superadmin}
                         className={userData.is_admin 
                           ? "" 
                           : "bg-camp-cyan text-camp-dark hover:bg-camp-cyan/90"
                         }
                       >
-                        {userData.is_admin ? 'Revoke Admin' : 'Grant Admin'}
+                        {userData.is_superadmin
+                          ? 'Protegido'
+                          : userData.is_admin
+                            ? 'Remover Admin'
+                            : 'Tornar Admin'}
                       </Button>
                     </div>
                   ))}
@@ -294,7 +304,7 @@ const RoleManager = () => {
                   {users.length === 0 && (
                     <div className="text-center py-8">
                       <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">No users found</p>
+                      <p className="text-muted-foreground">Nenhum usuário encontrado</p>
                     </div>
                   )}
                 </div>

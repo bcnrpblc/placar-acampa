@@ -34,22 +34,37 @@ interface ScoreEntry {
   created_at: string;
   team: { name: string; color: string };
   player: { name: string } | null;
+  round: { game: { title: string } | null } | null;
   admin: { display_name: string } | null;
 }
 
 interface AdminPanelProps {
   onBack: () => void;
+  eventId: string;
+  eventTitle: string;
+  eventStatus: "draft" | "live" | "ended";
+  scoringMode: "team" | "individual";
+  /** When true, skip outer page chrome (used inside AdminEventDetail tabs). */
+  embedded?: boolean;
 }
 
-export const AdminPanel = ({ onBack }: AdminPanelProps) => {
+export const AdminPanel = ({
+  onBack,
+  eventId,
+  eventTitle,
+  eventStatus,
+  scoringMode,
+  embedded = false,
+}: AdminPanelProps) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [recentEntries, setRecentEntries] = useState<ScoreEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const readonly = eventStatus === "ended";
   
   // Form state
-  const [assignmentMode, setAssignmentMode] = useState<'individual' | 'team'>('individual');
+  const [assignmentMode, setAssignmentMode] = useState<'individual' | 'team'>(scoringMode === 'team' ? 'team' : 'individual');
   const [selectedTeam, setSelectedTeam] = useState("");
   const [players, setPlayers] = useState<Player[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState("");
@@ -61,13 +76,12 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   
   const { toast } = useToast();
 
-  // Fetch initial data
   useEffect(() => {
     fetchTeams();
     fetchGames();
     fetchRecentEntries();
     getCurrentUser();
-  }, []);
+  }, [eventId]);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -118,12 +132,20 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   }, [teamPoints, players, assignmentMode]);
 
   const fetchTeams = async () => {
-    const { data } = await supabase.from('teams').select('*').order('name');
+    const { data } = await supabase
+      .from('teams')
+      .select('id, name, color')
+      .eq('event_id', eventId)
+      .order('name');
     if (data) setTeams(data);
   };
 
   const fetchGames = async () => {
-    const { data } = await supabase.from('games').select('*').order('title');
+    const { data } = await supabase
+      .from('games')
+      .select('id, title, slug')
+      .eq('event_id', eventId)
+      .order('title');
     if (data) setGames(data);
   };
 
@@ -140,6 +162,15 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   };
 
   const fetchRecentEntries = async () => {
+    const teamIds = (
+      await supabase.from('teams').select('id').eq('event_id', eventId)
+    ).data?.map((t) => t.id) ?? [];
+
+    if (teamIds.length === 0) {
+      setRecentEntries([]);
+      return;
+    }
+
     const { data } = await supabase
       .from('score_entries')
       .select(`
@@ -149,8 +180,10 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
         created_at,
         created_by,
         team:teams(name, color),
-        player:players(name)
+        player:players(name),
+        round:rounds(game:games(title))
       `)
+      .in('team_id', teamIds)
       .order('created_at', { ascending: false })
       .limit(10);
     
@@ -175,10 +208,18 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
   };
 
   const addPoints = async () => {
-    // Enhanced input validation
+    if (readonly) {
+      toast({
+        title: "Evento encerrado",
+        description: "Não é possível alterar pontuações.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!selectedTeam || !selectedGame) {
       toast({
-        title: "Validation Error",
+        title: "Dados inválidos",
         description: "Selecione um time e um jogo",
         variant: "destructive"
       });
@@ -188,7 +229,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
     if (assignmentMode === 'individual') {
       if (!selectedPlayer) {
         toast({
-          title: "Validation Error",
+          title: "Dados inválidos",
           description: "Selecione um jogador para pontuação individual.",
           variant: "destructive"
         });
@@ -197,7 +238,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
       
       if (!points || parseInt(points) === 0) {
         toast({
-          title: "Validation Error",
+          title: "Dados inválidos",
           description: "Pontos não podem ser 0",
           variant: "destructive"
         });
@@ -206,7 +247,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
 
       if (Math.abs(parseInt(points)) > 1000) {
         toast({
-          title: "Validation Error",
+          title: "Dados inválidos",
           description: "Pontos não podem execeder ±1000.",
           variant: "destructive"
         });
@@ -215,7 +256,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
     } else {
       if (!teamPoints || parseInt(teamPoints) === 0) {
         toast({
-          title: "Validation Error",
+          title: "Dados inválidos",
           description: "Pontos do time não podem ser 0",
           variant: "destructive"
         });
@@ -224,7 +265,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
 
       if (Math.abs(parseInt(teamPoints)) > 10000) {
         toast({
-          title: "Validation Error",
+          title: "Dados inválidos",
           description: "Pontos do time não podem execeder ±10000.",
           variant: "destructive"
         });
@@ -277,18 +318,18 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
 
         if (scoreError) throw scoreError;
 
-        // Update team aggregate
         const { error: aggregateError } = await supabase
           .rpc('increment_team_points', {
+            target_event_id: eventId,
             target_team_id: selectedTeam,
             points_to_add: parseInt(points)
           });
 
         if (aggregateError) {
-          // Fallback: manual update
           const { data: currentAggregate } = await supabase
             .from('team_aggregates')
             .select('total_points')
+            .eq('event_id', eventId)
             .eq('team_id', selectedTeam)
             .single();
 
@@ -300,23 +341,34 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
               total_points: newTotal,
               last_updated: new Date().toISOString()
             })
+            .eq('event_id', eventId)
             .eq('team_id', selectedTeam);
         }
 
         toast({
           title: "Pontos Adicionados!",
-          description: `Adicionados ${points} pontos à equipe ${teams.find(t => t.id === selectedTeam)?.name}`,
+          description: `${points} pontos para ${players.find(p => p.id === selectedPlayer)?.name ?? 'participante'} (${teams.find(t => t.id === selectedTeam)?.name})`,
         });
       } else {
         // Team mode - distribute points among all participants
-        const scoreEntries = players.map(player => ({
-          round_id: roundId,
-          team_id: selectedTeam,
-          player_id: player.id,
-          points: customDistribution[player.id] || 0,
-          reason: sanitizedReason || `Distribuição na equipe: ${teamPoints} pontos`,
-          created_by: currentUser?.id
-        }));
+        // Team-only events (or teams without participants): one entry for the team
+        const scoreEntries = scoringMode === 'team' || players.length === 0
+          ? [{
+              round_id: roundId,
+              team_id: selectedTeam,
+              player_id: null,
+              points: parseInt(teamPoints),
+              reason: sanitizedReason || null,
+              created_by: currentUser?.id
+            }]
+          : players.map(player => ({
+              round_id: roundId,
+              team_id: selectedTeam,
+              player_id: player.id,
+              points: customDistribution[player.id] || 0,
+              reason: sanitizedReason || `Distribuição na equipe: ${teamPoints} pontos`,
+              created_by: currentUser?.id
+            }));
 
         const { error: scoreError } = await supabase
           .from('score_entries')
@@ -324,18 +376,18 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
 
         if (scoreError) throw scoreError;
 
-        // Update team aggregate with total team points
         const { error: aggregateError } = await supabase
           .rpc('increment_team_points', {
+            target_event_id: eventId,
             target_team_id: selectedTeam,
             points_to_add: parseInt(teamPoints)
           });
 
         if (aggregateError) {
-          // Fallback: manual update
           const { data: currentAggregate } = await supabase
             .from('team_aggregates')
             .select('total_points')
+            .eq('event_id', eventId)
             .eq('team_id', selectedTeam)
             .single();
 
@@ -347,6 +399,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
               total_points: newTotal,
               last_updated: new Date().toISOString()
             })
+            .eq('event_id', eventId)
             .eq('team_id', selectedTeam);
         }
 
@@ -374,36 +427,8 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
     setLoading(false);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-dark p-4">
-      <div className="container mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <div className="flex items-center gap-2">
-            <Button onClick={onBack} variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Voltar ao Placar
-            </Button>
-            <Button 
-              onClick={() => window.location.href = '/admin/roles'} 
-              variant="outline" 
-              size="sm"
-              className="bg-camp-cyan/10 text-camp-cyan border-camp-cyan/30 hover:bg-camp-cyan/20"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Gerenciar Papeis
-            </Button>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-camp bg-clip-text text-transparent">
-              Painel de Controle Acampa 25+
-            </h1>
-            <p className="text-muted-foreground">Gestor de Pontos</p>
-          </div>
-        </div>
-
+  const form = (
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Add Points Form */}
           <Card className="bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -411,8 +436,9 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                 Adicionar Pontos
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className={`space-y-4 ${readonly ? "opacity-60 pointer-events-none" : ""}`}>
               {/* Assignment Mode Selection */}
+              {scoringMode === 'individual' && (
               <div>
                 <Label>Atribuir Pontos Para</Label>
                 <div className="flex gap-2 mt-2">
@@ -436,6 +462,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                   </Button>
                 </div>
               </div>
+              )}
 
               <div>
                 <Label htmlFor="team-select">Selecionar Equipe</Label>
@@ -463,7 +490,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
               {assignmentMode === 'individual' && (
                 <>
                   <div>
-                    <Label htmlFor="player-select">Select Participant</Label>
+                    <Label htmlFor="player-select">Selecionar Participante</Label>
                     <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
                       <SelectTrigger>
                         <SelectValue placeholder={players.length ? "Selecione um participante..." : "Nenhum participante para este time"} />
@@ -558,7 +585,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                   id="reason-input"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="e.g., 'Ganhou a brincadeira noturna, participação extra'..."
+                  placeholder="Ex.: Venceu a gincana, participação extra..."
                 />
               </div>
 
@@ -595,9 +622,14 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                         style={{ backgroundColor: entry.team.color }}
                       />
                       <div>
-                        <p className="font-medium">{entry.team.name}</p>
+                        <p className="font-medium">
+                          {entry.player ? `${entry.player.name} · ` : ''}{entry.team.name}
+                        </p>
+                        {entry.round?.game && (
+                          <p className="text-xs text-camp-cyan">Jogo: {entry.round.game.title}</p>
+                        )}
                         <p className="text-xs text-muted-foreground">
-                          {entry.reason || 'Points awarded'}
+                          {entry.reason || 'Pontos concedidos'}
                         </p>
                         {entry.admin && (
                           <p className="text-xs text-muted-foreground/60">
@@ -611,7 +643,7 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
                         {entry.points > 0 ? '+' : ''}{entry.points}
                       </Badge>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(entry.created_at).toLocaleTimeString()}
+                        {new Date(entry.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                   </div>
@@ -625,6 +657,39 @@ export const AdminPanel = ({ onBack }: AdminPanelProps) => {
             </CardContent>
           </Card>
         </div>
+  );
+
+  if (embedded) {
+    return form;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-dark p-4">
+      <div className="container mx-auto max-w-4xl">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-2">
+            <Button onClick={onBack} variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar
+            </Button>
+            <Button
+              onClick={() => (window.location.href = "/admin/roles")}
+              variant="outline"
+              size="sm"
+              className="bg-camp-cyan/10 text-camp-cyan border-camp-cyan/30 hover:bg-camp-cyan/20"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Gerenciar Papéis
+            </Button>
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-camp bg-clip-text text-transparent">
+              {eventTitle}
+            </h1>
+            <p className="text-muted-foreground">Gestor de Pontos</p>
+          </div>
+        </div>
+        {form}
       </div>
     </div>
   );

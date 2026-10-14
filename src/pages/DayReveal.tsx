@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from '@/integrations/supabase/client';
+import { useEventId } from '@/lib/useEventId';
+import { useRevealScreen } from '@/lib/useRevealChannel';
 import { Trophy, Star, Sparkles, Crown, ArrowLeft, TrendingUp, Calendar } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 import * as React from "react";
@@ -16,7 +17,7 @@ const DayReveal = () => {
   const [selectedDay] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [snapshot, setSnapshot] = useState<any>(null);
   const [currentPhase, setCurrentPhase] = useState(1);
-  const navigate = useNavigate();
+  const { eventId } = useEventId();
 
   const handleStartReveal = async () => {
     setRevealState('locking');
@@ -35,6 +36,7 @@ const DayReveal = () => {
             avatar_url
           )
         `)
+        .eq('event_id', eventId!)
         .order('total_points', { ascending: false });
 
       if (teamsData) {
@@ -114,20 +116,10 @@ const DayReveal = () => {
 
   const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+  useRevealScreen(eventId, 'day', () => handleStartReveal());
+
   return (
     <div className="min-h-screen bg-gradient-dark relative overflow-hidden">
-      {/* Back Button */}
-      <div className="absolute top-4 left-4 z-50">
-        <Button
-          onClick={() => navigate('/')}
-          variant="outline"
-          size="sm"
-          className="bg-card/50 backdrop-blur-sm border-camp-cyan/20 text-foreground hover:bg-card/80"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar
-        </Button>
-      </div>
 
       {/* Animated Background */}
       <div className="absolute inset-0">
@@ -157,7 +149,6 @@ const DayReveal = () => {
         {revealState === 'complete' && snapshot && (
           <RevealComplete
             snapshot={snapshot}
-            onReset={() => setRevealState('waiting')}
           />
         )}
       </AnimatePresence>
@@ -208,30 +199,9 @@ const RevealControlPanel = ({ selectedDay, onStartReveal }: any) => {
                 </div>
               </div>
 
-              <Card className="bg-team-yellow/20 border-team-yellow/50">
-                <CardContent className="flex items-start gap-3 p-4">
-                  <div className="text-team-yellow text-xl">⚠️</div>
-                  <div>
-                    <p className="text-team-yellow font-semibold mb-1">Atenção!</p>
-                    <p className="text-muted-foreground text-sm">
-                      Após iniciar o reveal, o dia será travado e não poderá receber mais pontos. 
-                      Certifique-se que todos os pontos foram adicionados corretamente.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Button
-                onClick={onStartReveal}
-                className="w-full py-6 text-4xl font-black rounded-xl
-                         bg-gradient-camp hover:opacity-90
-                         transform hover:scale-105 active:scale-80 transition-all
-                         shadow-elevation"
-              >
-                <Sparkles className="w-8 h-8 mr-3" />
-                INICIAR A APURAÇÃO
-                <Sparkles className="w-8 h-8 ml-3" />
-              </Button>
+              <p className="text-center text-2xl md:text-4xl font-bold text-camp-cyan animate-pulse">
+                Aguardando o início da apuração...
+              </p>
             </CardContent>
           </Card>
         </motion.div>
@@ -723,7 +693,7 @@ const WinnerCelebration = ({ winner }: any) => {
 };
 
 // Reveal Complete Component
-const RevealComplete = ({ snapshot, onReset }: any) => {
+const RevealComplete = ({ snapshot }: any) => {
   return (
     <div className="min-h-screen bg-gradient-glow">
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
@@ -739,14 +709,6 @@ const RevealComplete = ({ snapshot, onReset }: any) => {
               </h1>
               
               <div className="space-y-4">
-                <Button
-                  onClick={onReset}
-                  className="px-8 py-4 text-xl font-bold rounded-xl
-                           bg-gradient-camp hover:opacity-90
-                           transform hover:scale-105 active:scale-95 transition-all"
-                >
-                  Nova Apuração
-                </Button>
                 
                 <div className="text-muted-foreground">
                   <p>Parabéns a equipe {snapshot.teams[0].name}!</p>

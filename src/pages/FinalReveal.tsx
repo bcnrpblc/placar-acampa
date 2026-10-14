@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from '@/integrations/supabase/client';
+import { useEventId } from '@/lib/useEventId';
+import { useRevealScreen } from '@/lib/useRevealChannel';
 import { Trophy, Star, Sparkles, Crown, ArrowLeft, TrendingUp, Zap } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import * as React from "react";
 
@@ -57,7 +58,7 @@ const FinalReveal = () => {
   const [revealedPositions, setRevealedPositions] = useState<Set<number>>(new Set());
   const [currentPhase, setCurrentPhase] = useState<RevealPhase>({ type: 'countdown', duration: 5000 });
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const { eventId, event } = useEventId();
 
   // Dramatic timing schedule based on research
   const getRevealTiming = (position: number): number => {
@@ -82,7 +83,16 @@ const FinalReveal = () => {
     
     try {
       // Fetch final rankings
-      const { data: teamsData } = await supabase
+      // An ended event replays from its saved snapshot so results cannot change
+      const snapRows = event?.status === 'ended' && Array.isArray(event.final_snapshot)
+        ? (event.final_snapshot as any[]).map((r) => ({
+            team_id: r.team_id,
+            total_points: r.total_points,
+            teams: { id: r.team_id, name: r.name, color: r.color, avatar_url: r.avatar_url },
+          }))
+        : null;
+
+      const { data: liveRows } = await supabase
         .from('team_aggregates')
         .select(`
           team_id,
@@ -94,8 +104,10 @@ const FinalReveal = () => {
             avatar_url
           )
         `)
+        .eq('event_id', eventId!)
         .order('total_points', { ascending: false });
 
+      const teamsData = snapRows ?? liveRows;
       if (teamsData) {
         const formattedTeams: Team[] = teamsData.map((item: any, index: number) => ({
           id: item.team_id,
@@ -213,20 +225,10 @@ const FinalReveal = () => {
 
   const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+  useRevealScreen(eventId, 'final', () => handleStartFinalReveal());
+
   return (
     <div className="min-h-screen bg-gradient-dark relative overflow-hidden">
-      {/* Back Button */}
-      <div className="absolute top-4 left-4 z-50">
-        <Button
-          onClick={() => navigate('/')}
-          variant="outline"
-          size="sm"
-          className="bg-card/50 backdrop-blur-sm border-camp-cyan/20 text-foreground hover:bg-card/80"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar
-        </Button>
-      </div>
 
       {/* Animated Background */}
       <div className="absolute inset-0">
@@ -255,11 +257,6 @@ const FinalReveal = () => {
           <FinalRevealComplete 
             winner={teams[0]}
             allTeams={teams}
-            onReset={() => {
-              setRevealState('waiting');
-              setRevealedPositions(new Set());
-              setTeams([]);
-            }}
           />
         )}
       </AnimatePresence>
@@ -302,18 +299,9 @@ const FinalRevealControlPanel = ({ onStartReveal, isLoading }: { onStartReveal: 
                 </CardContent>
               </Card>
 
-              <Button
-                onClick={onStartReveal}
-                disabled={isLoading}
-                className="w-full py-6 text-4xl font-black rounded-xl
-                         bg-gradient-camp hover:opacity-90
-                         transform hover:scale-105 active:scale-95 transition-all
-                         shadow-elevation disabled:opacity-50"
-              >
-                <Crown className="w-8 h-8 mr-3" />
-                {isLoading ? 'PREPARANDO...' : 'INICIAR APURAÇÃO FINAL'}
-                <Crown className="w-8 h-8 ml-3" />
-              </Button>
+              <p className="text-center text-2xl md:text-4xl font-bold text-camp-cyan animate-pulse">
+                {isLoading ? 'PREPARANDO...' : 'Aguardando o início da apuração...'}
+              </p>
             </CardContent>
           </Card>
         </motion.div>
@@ -835,11 +823,9 @@ const TeamRevealCard = ({
 const FinalRevealComplete = ({ 
   winner, 
   allTeams, 
-  onReset 
 }: { 
   winner: Team, 
   allTeams: Team[], 
-  onReset: () => void 
 }) => {
   return (
     <motion.div
@@ -873,15 +859,6 @@ const FinalRevealComplete = ({
               </div>
               
               <div className="space-y-4">
-                <Button
-                  onClick={onReset}
-                  className="px-8 py-4 text-xl font-bold rounded-xl
-                           bg-gradient-camp hover:opacity-90
-                           transform hover:scale-105 active:scale-95 transition-all"
-                >
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Nova Revelação
-                </Button>
                 
                 <div className="text-muted-foreground">
                   <p className="text-lg">"Sede, pois, imitadores de Deus, como filhos amados"</p>

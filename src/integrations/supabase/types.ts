@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
@@ -51,6 +49,7 @@ export type Database = {
         Row: {
           created_at: string | null
           day: string
+          event_id: string
           id: string
           locked_by: string | null
           snapshot: Json
@@ -58,6 +57,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           day: string
+          event_id: string
           id?: string
           locked_by?: string | null
           snapshot: Json
@@ -65,9 +65,66 @@ export type Database = {
         Update: {
           created_at?: string | null
           day?: string
+          event_id?: string
           id?: string
           locked_by?: string | null
           snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_snapshots_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          ended_at: string | null
+          final_snapshot: Json | null
+          id: string
+          scoring_mode: Database["public"]["Enums"]["scoring_mode"]
+          slug: string
+          starts_at: string | null
+          subtitle: string | null
+          status: Database["public"]["Enums"]["event_status"]
+          theme: Json | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          ended_at?: string | null
+          final_snapshot?: Json | null
+          id?: string
+          scoring_mode?: Database["public"]["Enums"]["scoring_mode"]
+          slug: string
+          starts_at?: string | null
+          subtitle?: string | null
+          status?: Database["public"]["Enums"]["event_status"]
+          theme?: Json | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          ended_at?: string | null
+          final_snapshot?: Json | null
+          id?: string
+          scoring_mode?: Database["public"]["Enums"]["scoring_mode"]
+          slug?: string
+          starts_at?: string | null
+          subtitle?: string | null
+          status?: Database["public"]["Enums"]["event_status"]
+          theme?: Json | null
+          title?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -75,6 +132,7 @@ export type Database = {
         Row: {
           created_at: string | null
           description: string | null
+          event_id: string
           id: string
           slug: string
           title: string
@@ -82,6 +140,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           description?: string | null
+          event_id: string
           id?: string
           slug: string
           title: string
@@ -89,46 +148,49 @@ export type Database = {
         Update: {
           created_at?: string | null
           description?: string | null
+          event_id?: string
           id?: string
           slug?: string
           title?: string
         }
-        Relationships: []
-      }
-      lista_atualizada: {
-        Row: {
-          celular: number
-          nome: string | null
-        }
-        Insert: {
-          celular: number
-          nome?: string | null
-        }
-        Update: {
-          celular?: number
-          nome?: string | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "games_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       players: {
         Row: {
+          avatar_url: string | null
           created_at: string | null
+          event_id: string
           id: string
           name: string
+          name_key: string
           phone: string | null
           team_id: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string | null
+          event_id: string
           id?: string
           name: string
+          name_key: string
           phone?: string | null
           team_id?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string | null
+          event_id?: string
           id?: string
           name?: string
+          name_key?: string
           phone?: string | null
           team_id?: string | null
         }
@@ -258,25 +320,35 @@ export type Database = {
       }
       team_aggregates: {
         Row: {
+          event_id: string
           last_updated: string | null
           team_id: string
           total_points: number
         }
         Insert: {
+          event_id: string
           last_updated?: string | null
           team_id: string
           total_points?: number
         }
         Update: {
+          event_id?: string
           last_updated?: string | null
           team_id?: string
           total_points?: number
         }
         Relationships: [
           {
+            foreignKeyName: "team_aggregates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "team_aggregates_team_id_fkey"
             columns: ["team_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -287,6 +359,7 @@ export type Database = {
           avatar_url: string | null
           color: string
           created_at: string | null
+          event_id: string
           id: string
           name: string
         }
@@ -294,6 +367,7 @@ export type Database = {
           avatar_url?: string | null
           color: string
           created_at?: string | null
+          event_id: string
           id?: string
           name: string
         }
@@ -301,10 +375,19 @@ export type Database = {
           avatar_url?: string | null
           color?: string
           created_at?: string | null
+          event_id?: string
           id?: string
           name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teams_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -329,9 +412,43 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      game_team_scores: {
+        Row: {
+          event_id: string | null
+          game_id: string | null
+          game_title: string | null
+          team_avatar: string | null
+          team_color: string | null
+          team_id: string | null
+          team_name: string | null
+          total_points: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      admin_add_role: {
+        Args: {
+          role_to_add: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      admin_remove_role: {
+        Args: {
+          role_to_remove: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      end_event: {
+        Args: { target_event_id: string }
+        Returns: boolean
+      }
+      event_is_writable: {
+        Args: { _event_id: string }
+        Returns: boolean
+      }
       get_players_public: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -349,16 +466,26 @@ export type Database = {
         Returns: boolean
       }
       increment_team_points: {
-        Args: { points_to_add: number; target_team_id: string }
+        Args: {
+          points_to_add: number
+          target_event_id: string
+          target_team_id: string
+        }
         Returns: undefined
       }
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_superadmin: {
+        Args: { _user_id?: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      event_status: "draft" | "live" | "ended"
+      scoring_mode: "team" | "individual"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -487,6 +614,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      event_status: ["draft", "live", "ended"],
+      scoring_mode: ["team", "individual"],
     },
   },
 } as const

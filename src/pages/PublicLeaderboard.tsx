@@ -1,26 +1,44 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { TeamCard, Team } from "../components/TeamCard";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Calendar, Users, Activity, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import type * as React from "react";
+import { useEventId } from "@/lib/useEventId";
+import { parseTheme } from "@/lib/theme";
 
 interface TeamWithAggregate extends Team {
   rank?: number;
+  previousPoints?: number;
 }
+
+
+/** Teams per row for a TV layout: 2→2, 3→3, 4→2x2, 5→3+2, 6→3x2, 8→4x2, 10→5x2. */
+const columnsFor = (n: number) => {
+  if (n <= 3) return Math.max(n, 1);
+  if (n === 4) return 2;
+  if (n <= 6) return 3;
+  if (n <= 8) return 4;
+  if (n === 9) return 3;
+  return 5;
+};
 
 const PublicLeaderboard = () => {
   const [teams, setTeams] = useState<TeamWithAggregate[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [activeViewers, setActiveViewers] = useState(1);
   const navigate = useNavigate();
+  const { eventId, event, notFound } = useEventId();
+  const prevTotals = useRef<Map<string, number>>(new Map());
+  const prevLeader = useRef<string | null>(null);
+  const [newLeaderId, setNewLeaderId] = useState<string | null>(null);
 
   // Fetch teams with their current points (teams only, no individual players)
   const fetchTeamData = async () => {
+    if (!eventId) return;
     try {
       const { data: teamsData, error: teamsError } = await supabase
         .from('teams')
@@ -29,14 +47,16 @@ const PublicLeaderboard = () => {
           name,
           color,
           avatar_url
-        `);
+        `)
+        .eq('event_id', eventId);
 
       const { data: aggregatesData, error: aggregatesError } = await supabase
         .from('team_aggregates')
         .select(`
           team_id,
           total_points
-        `);
+        `)
+        .eq('event_id', eventId);
 
       if (teamsError) throw teamsError;
       if (aggregatesError) throw aggregatesError;
@@ -54,7 +74,20 @@ const PublicLeaderboard = () => {
       // Sort by points and assign ranks
       const sortedTeams = teamsWithPoints
         .sort((a, b) => b.total_points - a.total_points)
-        .map((team, index) => ({ ...team, rank: index + 1 }));
+        .map((team, index) => ({
+          ...team,
+          rank: index + 1,
+          previousPoints: prevTotals.current.get(team.id),
+        }));
+
+      // One-time highlight when the lead changes hands
+      const leader = sortedTeams[0]?.total_points > 0 ? sortedTeams[0].id : null;
+      if (leader && prevLeader.current && leader !== prevLeader.current) {
+        setNewLeaderId(leader);
+        setTimeout(() => setNewLeaderId(null), 6000);
+      }
+      prevLeader.current = leader;
+      prevTotals.current = new Map(sortedTeams.map((t) => [t.id, t.total_points]));
 
       setTeams(sortedTeams);
       setLastUpdate(new Date());
@@ -67,17 +100,22 @@ const PublicLeaderboard = () => {
 
   // Set up real-time subscriptions
   useEffect(() => {
+    if (!eventId) {
+      if (notFound) setLoading(false);
+      return;
+    }
     fetchTeamData();
 
     // Subscribe to team_aggregates changes
     const aggregatesChannel = supabase
-      .channel('team_aggregates_changes')
+      .channel(`team_aggregates_${eventId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'team_aggregates'
+          table: 'team_aggregates',
+          filter: `event_id=eq.${eventId}`
         },
         () => {
           console.log('Team aggregates updated, refreshing...');
@@ -88,7 +126,7 @@ const PublicLeaderboard = () => {
 
     // Subscribe to score_entries for live updates (affects team totals)
     const scoresChannel = supabase
-      .channel('score_entries_changes')
+      .channel(`score_entries_${eventId}`)
       .on(
         'postgres_changes',
         {
@@ -107,119 +145,119 @@ const PublicLeaderboard = () => {
       supabase.removeChannel(aggregatesChannel);
       supabase.removeChannel(scoresChannel);
     };
-  }, []);
+  }, [eventId, notFound]);
+
+  if (notFound) {
+    return (
+      <div className="min-h-screen bg-gradient-dark flex items-center justify-center text-muted-foreground">
+        Evento não encontrado.
+      </div>
+    );
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-camp-cyan mb-4"></div>
-          <p className="text-xl text-muted-foreground">Carregando o Placar...</p>
+          <p className="text-xl text-muted-foreground">Carregando o placar...</p>
         </div>
       </div>
     );
   }
 
+  const cols = columnsFor(teams.length);
+  const rows: TeamWithAggregate[][] = [];
+  for (let i = 0; i < teams.length; i += cols) rows.push(teams.slice(i, i + cols));
+  const subtitle = event?.subtitle?.trim();
+  const theme = parseTheme(event?.theme);
+  const pill = {
+    fontSize: "1.6vmin",
+    fontFamily: "Barlow, sans-serif",
+    color: "var(--sb-text)",
+    borderColor: "var(--sb-accent)",
+    background: "color-mix(in srgb, var(--sb-text) 6%, var(--sb-bg))",
+  } as const;
+
   return (
-    <div className="min-h-screen bg-gradient-dark relative">
-      {/* Floating Admin Button */}
-        <Button
-          onClick={() => navigate('/auth')}
-          className="fixed top-4 left-4 z-50 bg-card/80 backdrop-blur-sm hover:bg-card"
-          variant="outline"
-          size="sm"
+    <div
+      className="h-screen w-screen overflow-hidden relative flex flex-col"
+      style={{
+        padding: "4vmin",
+        gap: "2.5vmin",
+        fontFamily: "'Barlow Condensed', 'Barlow', sans-serif",
+        background: theme.background,
+        color: theme.text,
+        "--sb-bg": theme.background,
+        "--sb-text": theme.text,
+        "--sb-accent": theme.accent,
+      } as React.CSSProperties}
+    >
+      <Button
+        onClick={() => navigate('/admin')}
+        className="fixed top-2 left-2 z-50 opacity-20 hover:opacity-100"
+        variant="outline"
+        size="sm"
+      >
+        <Settings className="w-4 h-4 mr-2" />
+        Admin
+      </Button>
+
+      {/* Header band: event name, optional subtitle (title grows when there is none) */}
+      <div className="text-center shrink-0">
+        <h1
+          className="font-extrabold uppercase leading-none"
+          style={{ fontSize: subtitle ? "8vmin" : "11vmin", color: "var(--sb-accent)", letterSpacing: "0.02em" }}
         >
-          <Settings className="w-4 h-4 mr-2" />
-          Admin
-        </Button>
-
-      {/* Background Geometric Shapes */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 right-20 text-camp-pink opacity-20 text-9xl">★</div>
-        <div className="absolute bottom-40 left-20 text-camp-pink opacity-10 text-6xl">➤</div>
-        <div className="absolute top-1/2 right-10 text-camp-pink opacity-15 text-7xl">★</div>
-        <div className="absolute bottom-20 right-1/3 text-camp-pink opacity-10 text-5xl">➤</div>
+          {event?.title}
+        </h1>
+        {subtitle && (
+          <p className="font-bold uppercase opacity-80" style={{ fontSize: "3.2vmin", marginTop: "1vmin", letterSpacing: "0.12em" }}>
+            {subtitle}
+          </p>
+        )}
       </div>
 
-      {/* Header */}
-      <div className="bg-gradient-glow relative z-10">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center mb-8">
-            <h1 className="text-6xl md:text-8xl font-black bg-gradient-camp bg-clip-text text-transparent mb-2">
-              ACAMPAMENTO 25+
-            </h1>
-            <p className="text-2xl md:text-3xl font-bold text-camp-cyan mb-4">
-              Live Leaderboard
-            </p>
-            <div className="text-sm md:text-base text-muted-foreground mb-4 max-w-2xl mx-auto italic">
-              "Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1
-            </div>
+      <div className="shrink-0" style={{ height: "0.4vmin", background: "var(--sb-accent)", opacity: 0.8 }} />
+
+      {/* Teams: rows of equal height; incomplete last row is centered */}
+      <div className="flex-1 min-h-0 flex flex-col" style={{ gap: "2.5vmin" }}>
+        {rows.map((row, r) => (
+          <div key={r} className="flex-1 min-h-0 flex justify-center" style={{ gap: "2.5vmin" }}>
+            {row.map((team, i) => {
+              const index = r * cols + i;
+              const isLeader = index === 0 && team.total_points > 0;
+              return (
+                <div
+                  key={team.id}
+                  className="min-w-0 h-full"
+                  style={{ flex: `0 0 calc((100% - ${(cols - 1) * 2.5}vmin) / ${cols})` }}
+                >
+                  <TeamCard
+                    team={team}
+                    rank={team.rank || index + 1}
+                    isLeader={isLeader}
+                    previousPoints={team.previousPoints}
+                    highlightNew={newLeaderId === team.id}
+                  />
+                </div>
+              );
+            })}
           </div>
-          
-          {/* Stats Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-            <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
-              <CardContent className="flex items-center gap-2 p-4">
-                <Calendar className="w-5 h-5 text-camp-cyan" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Dia</p>
-                  <p className="font-bold">{format(new Date(), 'MMM d')}</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-card/50 backdrop-blur-sm border-camp-pink/20">
-              <CardContent className="flex items-center gap-2 p-4">
-                <Clock className="w-5 h-5 text-camp-pink" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Atualizado</p>
-                  <p className="font-bold">{format(lastUpdate, 'HH:mm')}</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-card/50 backdrop-blur-sm border-team-green/20">
-              <CardContent className="flex items-center gap-2 p-4">
-                <Users className="w-5 h-5 text-team-green" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Equipes</p>
-                  <p className="font-bold">{teams.length}</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-card/50 backdrop-blur-sm border-team-yellow/20">
-              <CardContent className="flex items-center gap-2 p-4">
-                <Activity className="w-5 h-5 text-team-yellow" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Visualizadores</p>
-                  <p className="font-bold">{activeViewers}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Leaderboard Grid */}
-      <div className="container mx-auto px-4 py-8 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4">
-          {teams.map((team, index) => (
-            <TeamCard
-              key={team.id}
-              team={team}
-              rank={team.rank || index + 1}
-              isLeader={index === 0}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Live Indicator */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <Badge variant="outline" className="bg-card/80 backdrop-blur-sm border-camp-cyan animate-pulse">
-          <div className="w-2 h-2 bg-camp-cyan rounded-full mr-2 animate-ping"></div>
-          LIVE
+      {/* Bottom right: last update and live pills (inside the safe zone) */}
+      <div className="absolute flex items-center" style={{ bottom: "1.2vmin", right: "2vmin", gap: "1vmin" }}>
+        <Badge variant="outline" style={pill}>
+          Atualizado às {format(lastUpdate, "HH:mm")} em {format(lastUpdate, "dd/MM")}
+        </Badge>
+        <Badge variant="outline" style={pill}>
+          <span className="relative flex mr-2" style={{ width: "1vmin", height: "1vmin" }}>
+            <span className="absolute inset-0 rounded-full animate-ping" style={{ background: "var(--sb-accent)" }} />
+            <span className="relative rounded-full w-full h-full" style={{ background: "var(--sb-accent)" }} />
+          </span>
+          AO VIVO
         </Badge>
       </div>
     </div>

@@ -6,6 +6,12 @@
 All colors MUST be HSL.
 */
 
+@keyframes sb-flash {
+  from { opacity: 0.35; }
+  to { opacity: 0; }
+}
+.sb-flash { animation: sb-flash 1.2s ease-out forwards; }
+
 @layer base {
   :root {
     /* Camp Clash Brand Colors */
