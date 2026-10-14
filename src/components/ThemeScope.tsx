@@ -14,7 +14,7 @@ export const ThemeScope = ({
   style?: CSSProperties;
   children: ReactNode;
 }) => (
-  <div className={className} style={{ fontFamily: "var(--sb-font)", ...themeStyle(parseTheme(theme)), ...style }}>
+  <div className={className} style={{ fontFamily: "var(--sb-font)", fontSynthesis: "none", ...themeStyle(parseTheme(theme)), ...style }}>
     {children}
   </div>
 );

@@ -12,6 +12,10 @@ import confetti from 'canvas-confetti';
 import * as React from "react";
 import { RevealThemeProvider, useRevealTheme } from '@/components/RevealThemeProvider';
 import { SHORT_REVEAL_TIMING as T, TOP3_MIN_TEAMS } from '@/lib/revealTiming';
+import { RevealWaiting } from '@/components/RevealWaiting';
+import { RevealClosing } from '@/components/RevealClosing';
+import { RevealWinner } from '@/components/RevealWinner';
+import { RevealHeartbeat } from '@/components/RevealHeartbeat';
 import { parseTheme, confettiColors } from '@/lib/theme';
 
 const GameReveal = () => {
@@ -194,51 +198,18 @@ const GameReveal = () => {
 };
 
 // Game Selection Panel Component
-const GameSelectionPanel = () => {
-  const { texts } = useRevealTheme();
-  return (
-    <div className="min-h-screen bg-[color:var(--sb-bg)]">
-      <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="w-full max-w-4xl"
-        >
-          <Card className="bg-[color:var(--sb-panel)] backdrop-blur-sm border-[color:var(--sb-accent)]">
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <Gamepad2 className="w-16 h-16 text-[color:var(--sb-accent)]" />
-              </div>
-              <CardTitle className="text-6xl md:text-9xl font-black text-[color:var(--sb-accent)] mb-4">
-                {texts.title}
-              </CardTitle>
-              {texts.subtitle && (
-                <p className="text-xl md:text-2xl text-[color:var(--sb-muted)] mb-2">{texts.subtitle}</p>
-              )}
-              {texts.verse && (
-                <div className="text-xl text-[color:var(--sb-muted)] mt-2">
-                  "{texts.verse}"{texts.verseRef && ` - ${texts.verseRef}`}
-                </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-2xl md:text-4xl font-bold text-[color:var(--sb-accent)] animate-pulse">
-                Aguardando o início da apuração...
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    </div>
-  );
-};
+const GameSelectionPanel = () => (
+  <RevealWaiting
+    status="Aguardando o início da apuração..."
+    icon={<Gamepad2 style={{ width: "9vmin", height: "9vmin" }} />}
+  />
+);
 
 // Locking Animation Component
 const LockingAnimation = () => {
   return (
     <div className="min-h-screen bg-[color:var(--sb-bg)]">
-      <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
+      <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -263,83 +234,13 @@ const LockingAnimation = () => {
 };
 
 // Heartbeat Transition Component
-const HeartbeatTransition = () => {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/95 flex items-center justify-center z-50"
-    >
-      <div className="relative">
-        <motion.div
-          animate={{
-            scale: [1, 1.5, 1],
-            opacity: [0.3, 0, 0.3],
-          }}
-          transition={{
-            duration: 1.5,
-            repeat: 10,
-            ease: "easeInOut",
-          }}
-          className="absolute inset-0 w-64 h-64 -translate-x-32 -translate-y-32 
-                     rounded-full bg-[color:var(--sb-accent)] opacity-[.30] blur-xl"
-        />
-        
-        <motion.div
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.5, 0.1, 0.5],
-          }}
-          transition={{
-            duration: 5,
-            repeat: 2,
-            ease: "easeInOut",
-            delay: 0.5,
-          }}
-          className="absolute inset-0 w-48 h-48 -translate-x-24 -translate-y-24 
-                     rounded-full bg-[color:var(--sb-accent)] opacity-[.50] blur-lg"
-        />
-        
-        <motion.div
-          animate={{
-            scale: [3, 3.2, 0.9, 3],
-            boxShadow: [
-              "0 0 0 0 rgba(35, 219, 243, 0.7)",
-              "0 0 0 40px rgba(35, 219, 243, 0)",
-              "0 0 0 0 rgba(35, 219, 243, 0)",
-              "0 0 0 0 rgba(35, 219, 243, 0.7)",
-            ],
-          }}
-          transition={{
-            duration: 2,
-            repeat: 5,
-            ease: "easeInOut",
-          }}
-          className="w-32 h-32 rounded-full bg-[color:var(--sb-accent)] 
-                     shadow-2xl"
-        />
-      </div>
-      
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="absolute bottom-32 text-center"
-      >
-        <p className="text-[color:var(--sb-accent)] text-2xl font-bold animate-pulse">
-          Preparando o resultado...
-        </p>
-      </motion.div>
-    </motion.div>
-  );
-};
+const HeartbeatTransition = () => <RevealHeartbeat label="Preparando o resultado..." />;
 
 // Reveal Spectacle Component
 const RevealSpectacle = ({ snapshot, phase }: any) => {
   return (
     <div className="min-h-screen bg-[color:var(--sb-bg)]">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -350,7 +251,8 @@ const RevealSpectacle = ({ snapshot, phase }: any) => {
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4"
+              className="flex flex-wrap justify-center items-stretch"
+              style={{ gap: "3vmin", maxWidth: "94vw" }}
             >
               {(() => {
                 const teamsToShow = [...snapshot.teams]
@@ -415,6 +317,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
       initial={{ y: 50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay, duration: 0.6 }}
+      style={{ width: "min(30vmin, 17vw)", minWidth: "200px", containerType: "inline-size" }}
     >
       <Card 
         className={`
@@ -446,14 +349,14 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
 
         <CardHeader className="pb-2">
           <div className="flex items-center gap-4">
-            <Avatar className="w-16 h-16 border-2 border-current" style={{ borderColor: team.color }}>
+            <Avatar className="border-2" style={{ borderColor: team.color, width: "22cqw", height: "22cqw" }}>
               <AvatarImage src={team.avatar_url} alt={`${team.name} team avatar`} />
               <AvatarFallback className={`bg-${teamColorClass} text-white font-bold text-xl`}>
                 {team.name.charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-1" style={{ color: team.color }}>
+              <h2 className="font-bold mb-1" style={{ color: team.color, fontSize: "9cqw", lineHeight: 1.1 }}>
                 {team.name}
               </h2>
             </div>
@@ -463,8 +366,8 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
         <CardContent>
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <TrendingUp className={`w-6 h-6 text-${teamColorClass}`} />
-              <span className="text-lg font-semibold text-[color:var(--sb-muted)]">Pontos no Jogo</span>
+              <TrendingUp style={{ width: "6cqw", height: "6cqw", color: "var(--sb-accent)" }} />
+              <span className="font-semibold text-[color:var(--sb-muted)]" style={{ fontSize: "6cqw" }}>Pontos no Jogo</span>
             </div>
             <motion.div 
               initial={{ scale: 0 }}
@@ -473,11 +376,11 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
               className="relative"
             >
               <div 
-                className={`text-6xl font-black ${phase === 1 ? 'font-mono' : ''}`}
-                style={{ color: team.color }}
+                className="font-black"
+                style={{ color: team.color, fontSize: "22cqw", lineHeight: 1.1, fontVariantNumeric: "tabular-nums" }}
               >
                 {phase === 1 && (
-                  <div className="text-sm text-[color:var(--sb-muted)] mb-2">
+                  <div className="text-[color:var(--sb-muted)] mb-2" style={{ fontSize: "4.5cqw", letterSpacing: "0.1em" }}>
                     CALCULANDO...
                   </div>
                 )}
@@ -487,7 +390,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
                   hideActualScore={phase === 1}
                 />
                 {phase === 1 && (
-                  <div className="text-lg mt-2">
+                  <div className="mt-2" style={{ fontSize: "6cqw" }}>
                     pontos
                   </div>
                 )}
@@ -641,105 +544,26 @@ const Top3Spotlight = ({ teams }: any) => {
 const WinnerCelebration = ({ winner, gameTitle }: any) => {
   const { texts, fill } = useRevealTheme();
   return (
-    <motion.div
-      initial={{ scale: 0, rotate: -180 }}
-      animate={{ scale: 1, rotate: 0 }}
-      transition={{ type: "spring", duration: 1 }}
-      className="fixed inset-0 bg-[color:var(--sb-bg)] backdrop-blur flex items-center justify-center z-30"
-    >
-      <div className="text-center">
-        <motion.h1
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="text-8xl font-black text-[color:var(--sb-accent)] mb-4 drop-shadow-2xl"
-        >
-          {fill(texts.winnerTitle, { team: winner.name, game: gameTitle })}
-        </motion.h1>
-        
-        {/* Game Title Display */}
-        <motion.h2
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="text-3xl md:text-4xl font-bold text-[color:var(--sb-muted)] mb-8"
-        >
-          <span className="text-[color:var(--sb-accent)]">{gameTitle}</span>
-        </motion.h2>
-        
-        <motion.div
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Card 
-            className="bg-[color:var(--sb-panel)] backdrop-blur-sm rounded-3xl p-12 shadow-elevation max-w-2xl mx-auto border-4"
-            style={{ borderColor: winner.color }}
-          >
-            <Avatar className="w-32 h-32 mx-auto mb-6 border-4 shadow-2xl" style={{ borderColor: winner.color }}>
-              <AvatarImage src={winner.avatar_url} alt={`${winner.name} team avatar`} />
-              <AvatarFallback 
-                className="text-white text-6xl font-black"
-                style={{ backgroundColor: winner.color }}
-              >
-                {winner.name.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            
-            <h2 className="text-6xl font-black mb-6" style={{ color: winner.color }}>
-              {winner.name}
-            </h2>
-            <div className="text-5xl font-bold text-[color:var(--sb-text)] mb-4">
-              {winner.total_points} pontos
-            </div>
-            
-            <motion.div
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-            >
-              <Crown className="w-16 h-16 text-[color:var(--sb-accent2)] mx-auto" />
-            </motion.div>
-          </Card>
-        </motion.div>
-      </div>
-    </motion.div>
+    <RevealWinner
+      title={fill(texts.winnerTitle, { team: winner.name, game: gameTitle })}
+      eyebrow={gameTitle}
+      winner={winner}
+    />
   );
 };
 
 // Reveal Complete Component
 const RevealComplete = ({ snapshot }: any) => {
   const { texts, fill } = useRevealTheme();
-  const vars = { team: snapshot.teams[0].name, game: snapshot.game_title };
+  const winner = snapshot.teams[0];
+  const vars = { team: winner.name, game: snapshot.game_title };
   return (
-    <div className="min-h-screen bg-[color:var(--sb-bg)]">
-      <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center w-full max-w-2xl"
-        >
-          <Card className="bg-[color:var(--sb-panel)] backdrop-blur-sm border-[color:var(--sb-accent)]">
-            <CardContent className="text-center space-y-8 p-8">
-              <h1 className="text-6xl font-black text-[color:var(--sb-accent)] mb-4">
-                {fill(texts.completeTitle, vars)}
-              </h1>
-              
-              <div className="space-y-2 mb-6">
-                <p className="text-2xl text-[color:var(--sb-muted)]">{fill(texts.completeSubtitle, vars)}</p>
-              </div>
-              
-              <div className="space-y-4">
-                
-                <div className="text-[color:var(--sb-muted)]">
-                  {texts.verse && (
-                    <p className="text-sm mt-4">"{texts.verse}"{texts.verseRef && ` - ${texts.verseRef}`}</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    </div>
+    <RevealClosing
+      title={fill(texts.completeTitle, vars)}
+      subtitle={fill(texts.completeSubtitle, vars)}
+      teamColor={winner.color}
+      detail={`${winner.total_points.toLocaleString('pt-BR')} pontos`}
+    />
   );
 };
 

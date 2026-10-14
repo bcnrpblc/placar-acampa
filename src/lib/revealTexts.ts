@@ -41,17 +41,17 @@ export const DEFAULT_REVEAL_TEXTS: Record<RevealKind, RevealTexts> = {
   day: {
     ...COMMON,
     title: "APURAÇÃO DO DIA",
-    top3Title: "TOP 3 DO DIA! 🏆",
-    winnerTitle: "🏆 A EQUIPE QUE MAIS PONTUOU HOJE FOI 🏆",
-    completeTitle: "Apuração Completa! ✨",
+    top3Title: "TOP 3 DO DIA!",
+    winnerTitle: "A EQUIPE QUE MAIS PONTUOU HOJE FOI",
+    completeTitle: "Apuração completa!",
     completeSubtitle: "Parabéns à equipe {team}!",
   },
   game: {
     ...COMMON,
     title: "APURAÇÃO POR JOGO",
-    top3Title: "TOP 3 DO JOGO! 🏆",
-    winnerTitle: "🏆 EQUIPE CAMPEÃ! 🏆",
-    completeTitle: "Apuração Completa! ✨",
+    top3Title: "TOP 3 DO JOGO!",
+    winnerTitle: "EQUIPE CAMPEÃ!",
+    completeTitle: "Apuração completa!",
     completeSubtitle: "Jogo: {game} — parabéns à equipe {team}!",
   },
   final: {
