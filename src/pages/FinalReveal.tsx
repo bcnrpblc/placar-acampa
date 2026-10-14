@@ -10,12 +10,16 @@ import { useRevealScreen } from '@/lib/useRevealChannel';
 import { Trophy, Star, Sparkles, Crown, ArrowLeft, TrendingUp, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as React from "react";
+import { RevealThemeProvider, useRevealTheme } from '@/components/RevealThemeProvider';
+import { TOP3_MIN_TEAMS } from '@/lib/revealTiming';
+import { parseTheme, confettiColors } from '@/lib/theme';
 
 interface Team {
   id: string;
   name: string;
   color: string;
   avatar_url: string;
+  photo_url?: string | null;
   total_points: number;
   rank: number;
 }
@@ -29,27 +33,27 @@ interface RevealPhase {
 // CONFIGURABLE TIMING CONSTANTS - Adjust these as needed
 const REVEAL_TIMING = {
   // Individual reveal durations
-  BOTTOM_TIER: 3000,    // Positions 8-10: 2s
-  MID_LOW_TIER: 4000,   // Positions 6-7: 3s
-  MID_HIGH_TIER: 5000,  // Positions 4-5: 4s
-  FOURTH_PLACE: 5000,   // 4th place: 4s
+  BOTTOM_TIER: 3000,    // Positions 8+: 3s
+  MID_LOW_TIER: 4000,   // Positions 6-7: 4s
+  MID_HIGH_TIER: 5000,  // Position 5: 5s
+  FOURTH_PLACE: 5000,   // Position 4 and below: 5s
   
   // Pause durations between reveals
-  BOTTOM_PAUSE: 3000,   // After positions 8-10: 1.5s
-  MID_LOW_PAUSE: 5000,  // After positions 6-7: 2.5s
-  MID_HIGH_PAUSE: 6000, // After positions 4-5: 4s
-  PRE_TOP3_PAUSE: 12000, // After 4th place: 10s (configurable)
+  BOTTOM_PAUSE: 3000,   // After positions 8+: 3s
+  MID_LOW_PAUSE: 5000,  // After positions 6-7: 5s
+  MID_HIGH_PAUSE: 6000, // After the other positions: 6s
+  PRE_TOP3_PAUSE: 12000, // Before the top 3 (or the winner when there is no top 3): 12s
   
   // Final sequence timing
-  TOP3_DISPLAY: 5000,   // Show top 3: 5s (configurable)
-  WINNER_IMAGE: 30000,  // Show winner image: 30s (configurable)
-  CONFETTI_DELAY: 3000, // Start confetti after 3s when winner shown (configurable)
-  CONFETTI_DURATION: 60000, // Confetti duration: 1 minute (configurable)
+  TOP3_DISPLAY: 5000,   // Show top 3: 5s
+  WINNER_IMAGE: 30000,  // Show winner image: 30s
+  CONFETTI_DELAY: 3000, // Start confetti 3s after the winner is shown
+  CONFETTI_DURATION: 60000, // Confetti duration: 60s
   CELEBRATION: 30000,   // Final celebration: 30s
   
   // Initial phases
-  COUNTDOWN: 7000,      // Initial countdown: 5s
-  INITIALIZATION: 5000, // Loading phase: 2s
+  COUNTDOWN: 7000,      // Initial countdown: 7s
+  INITIALIZATION: 5000, // Loading phase: 5s
 };
 
 const FinalReveal = () => {
@@ -65,16 +69,15 @@ const FinalReveal = () => {
     if (position >= 8) return REVEAL_TIMING.BOTTOM_TIER;
     if (position >= 6) return REVEAL_TIMING.MID_LOW_TIER;
     if (position >= 5) return REVEAL_TIMING.MID_HIGH_TIER;
-    if (position === 4) return REVEAL_TIMING.FOURTH_PLACE;
-    return 0; // Top 3 handled separately
+    return REVEAL_TIMING.FOURTH_PLACE;
   };
 
-  const getPauseTiming = (position: number): number => {
+  /** `stopAt` is the last position revealed one by one (4 with a top 3 step, 2 without). */
+  const getPauseTiming = (position: number, stopAt: number): number => {
+    if (position === stopAt) return REVEAL_TIMING.PRE_TOP3_PAUSE;
     if (position >= 8) return REVEAL_TIMING.BOTTOM_PAUSE;
     if (position >= 6) return REVEAL_TIMING.MID_LOW_PAUSE;
-    if (position >= 5) return REVEAL_TIMING.MID_HIGH_PAUSE;
-    if (position === 4) return REVEAL_TIMING.PRE_TOP3_PAUSE; // 10 second pause before top 3
-    return 0;
+    return REVEAL_TIMING.MID_HIGH_PAUSE;
   };
 
   const handleStartFinalReveal = async () => {
@@ -101,7 +104,8 @@ const FinalReveal = () => {
             id,
             name,
             color,
-            avatar_url
+            avatar_url,
+            photo_url
           )
         `)
         .eq('event_id', eventId!)
@@ -114,6 +118,7 @@ const FinalReveal = () => {
           name: item.teams.name,
           color: item.teams.color,
           avatar_url: item.teams.avatar_url,
+          photo_url: item.teams.photo_url ?? null,
           total_points: item.total_points,
           rank: index + 1
         }));
@@ -139,8 +144,13 @@ const FinalReveal = () => {
     setCurrentPhase({ type: 'countdown', duration: REVEAL_TIMING.COUNTDOWN });
     await wait(REVEAL_TIMING.COUNTDOWN);
 
-    // Phase 2: Bottom-up reveals STOPPING AT 4TH PLACE
-    for (let position = totalTeams; position >= 4; position--) {
+    // The top 3 step only exists with enough teams; otherwise reveal down to 2nd place, then the winner
+    const hasTop3 = totalTeams >= TOP3_MIN_TEAMS;
+    // With 3 or fewer teams nothing is revealed one by one: countdown, tension pause, winner
+    const stopAt = hasTop3 ? 4 : totalTeams <= 3 ? totalTeams + 1 : 2;
+
+    // Phase 2: Bottom-up reveals
+    for (let position = totalTeams; position >= stopAt; position--) {
       // Reveal this position
       setCurrentPhase({ 
         type: 'reveal', 
@@ -152,7 +162,7 @@ const FinalReveal = () => {
       await wait(getRevealTiming(position));
 
       // Strategic pause after each reveal
-      const pauseDuration = getPauseTiming(position);
+      const pauseDuration = getPauseTiming(position, stopAt);
       if (pauseDuration > 0) {
         setCurrentPhase({ 
           type: 'pause', 
@@ -163,11 +173,20 @@ const FinalReveal = () => {
       }
     }
 
-    // Phase 3: Show Top 3 together for 5 seconds
-    setCurrentPhase({ type: 'top3', duration: REVEAL_TIMING.TOP3_DISPLAY });
-    // Reveal top 3 positions
-    setRevealedPositions(prev => new Set([...prev, 1, 2, 3]));
-    await wait(REVEAL_TIMING.TOP3_DISPLAY);
+    // Tension pause before the winner when there was no bottom-up reveal
+    if (stopAt > totalTeams) {
+      setCurrentPhase({ type: 'pause', position: 1, duration: REVEAL_TIMING.PRE_TOP3_PAUSE });
+      await wait(REVEAL_TIMING.PRE_TOP3_PAUSE);
+    }
+
+    // Phase 3: Show Top 3 together (only with enough teams)
+    if (hasTop3) {
+      setCurrentPhase({ type: 'top3', duration: REVEAL_TIMING.TOP3_DISPLAY });
+      setRevealedPositions(prev => new Set([...prev, 1, 2, 3]));
+      await wait(REVEAL_TIMING.TOP3_DISPLAY);
+    } else {
+      setRevealedPositions(prev => new Set([...prev, 1]));
+    }
 
     // Phase 4: Show Winner Image (confetti will start after 3 seconds automatically)
     setCurrentPhase({ type: 'winner_image', duration: REVEAL_TIMING.WINNER_IMAGE });
@@ -184,7 +203,7 @@ const FinalReveal = () => {
   const triggerVictoryConfetti = () => {
     const duration = REVEAL_TIMING.CONFETTI_DURATION; // 60 seconds
     const end = Date.now() + duration;
-    const colors = ['#23dbf3', '#ee1147', '#ffffff', '#ffd700'];
+    const colors = confettiColors(parseTheme(event?.theme));
 
     (function frame() {
       // Multiple confetti bursts for epic victory celebration
@@ -228,7 +247,8 @@ const FinalReveal = () => {
   useRevealScreen(eventId, 'final', () => handleStartFinalReveal());
 
   return (
-    <div className="min-h-screen bg-gradient-dark relative overflow-hidden">
+    <RevealThemeProvider event={event} kind="final">
+    <div className="min-h-screen bg-[color:var(--sb-bg)] relative overflow-hidden">
 
       {/* Animated Background */}
       <div className="absolute inset-0">
@@ -261,49 +281,58 @@ const FinalReveal = () => {
         )}
       </AnimatePresence>
     </div>
+    </RevealThemeProvider>
   );
 };
 
 // Control Panel Component
 const FinalRevealControlPanel = ({ onStartReveal, isLoading }: { onStartReveal: () => void, isLoading: boolean }) => {
+  const { texts } = useRevealTheme();
   return (
-    <div className="min-h-screen bg-gradient-glow">
+    <div className="min-h-screen bg-[color:var(--sb-bg)]">
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
-          className="w-full max-w-4xl"
+          className="w-full max-w-[90vw]"
         >
-          <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20 transform scale-110 origin-center">
-            <CardHeader className="text-center">
-              <CardTitle className="text-6xl md:text-9xl font-black bg-gradient-camp bg-clip-text text-transparent mb-4">
-                APURAÇÃO FINAL
-              </CardTitle>
-              <p className="text-xl md:text-2xl text-muted-foreground mb-2">Acampamento 25+</p>
-              <div className="text-xl text-muted-foreground mt-2">
-                "Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <Card className="bg-team-yellow/20 border-team-yellow/50 hidden">
-                <CardContent className="flex items-start gap-3 p-4">
-                  <div className="text-team-yellow text-xl">🏆</div>
-                  <div>
-                    <p className="text-team-yellow font-semibold mb-1">Momento Especial!</p>
-                    <p className="text-muted-foreground text-sm">
-                      Este é o momento final do acampamento. A revelação acontecerá de forma 
-                      dramática, do último colocado ao grande vencedor!
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+          <div
+            className="flex flex-col items-center text-center rounded-2xl border border-[color:var(--sb-accent)] bg-[color:var(--sb-panel)]"
+            style={{ padding: "7vmin 6vmin", gap: "4vmin" }}
+          >
+            {/* Title group: title, accent rule, subtitle */}
+            <div className="flex flex-col items-center" style={{ gap: "3vmin" }}>
+              <h1
+                className="font-black uppercase text-[color:var(--sb-accent)]"
+                style={{ fontSize: "13vmin", lineHeight: 1.15, letterSpacing: "0.02em" }}
+              >
+                {texts.title}
+              </h1>
+              <div style={{ width: "18vmin", height: "0.6vmin", background: "var(--sb-accent)" }} />
+              {texts.subtitle && (
+                <p
+                  className="uppercase text-[color:var(--sb-muted)]"
+                  style={{ fontSize: "4.2vmin", lineHeight: 1.3, letterSpacing: "0.12em" }}
+                >
+                  {texts.subtitle}
+                </p>
+              )}
+              {texts.verse && (
+                <p className="text-[color:var(--sb-muted)]" style={{ fontSize: "3vmin", lineHeight: 1.4 }}>
+                  "{texts.verse}"{texts.verseRef && ` - ${texts.verseRef}`}
+                </p>
+              )}
+            </div>
 
-              <p className="text-center text-2xl md:text-4xl font-bold text-camp-cyan animate-pulse">
-                {isLoading ? 'PREPARANDO...' : 'Aguardando o início da apuração...'}
-              </p>
-            </CardContent>
-          </Card>
+            {/* Status */}
+            <p
+              className="font-bold text-[color:var(--sb-text)] animate-pulse"
+              style={{ fontSize: "4vmin", lineHeight: 1.3, marginTop: "2vmin" }}
+            >
+              {isLoading ? 'PREPARANDO...' : 'Aguardando o início da apuração...'}
+            </p>
+          </div>
         </motion.div>
       </div>
     </div>
@@ -317,7 +346,7 @@ const InitializationScreen = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-gradient-glow flex items-center justify-center"
+      className="min-h-screen bg-[color:var(--sb-bg)] flex items-center justify-center"
     >
       <div className="text-center">
         <motion.div
@@ -329,12 +358,12 @@ const InitializationScreen = () => {
             rotate: { duration: 2, repeat: Infinity, ease: "linear" },
             scale: { duration: 3, repeat: Infinity }
           }}
-          className="w-32 h-32 mx-auto mb-8 rounded-full border-8 border-camp-cyan border-t-camp-pink shadow-camp"
+          className="w-32 h-32 mx-auto mb-8 rounded-full border-8 border-[color:var(--sb-accent)] border-t-[color:var(--sb-accent2)] shadow-camp"
         />
-        <h2 className="text-4xl font-black text-foreground mb-4">
+        <h2 className="text-4xl font-black text-[color:var(--sb-text)] mb-4">
           PREPARANDO O PLACAR...
         </h2>
-        <p className="text-muted-foreground text-xl">
+        <p className="text-[color:var(--sb-muted)] text-xl">
           Compilando os números...
         </p>
       </div>
@@ -365,7 +394,7 @@ const HeartbeatTransition = () => {
             ease: "easeInOut",
           }}
           className="absolute inset-0 w-64 h-64 -translate-x-32 -translate-y-32 
-                     rounded-full bg-camp-cyan/30 blur-xl"
+                     rounded-full bg-[color:var(--sb-accent)] opacity-[.30] blur-xl"
         />
         
         {/* Middle pulse ring */}
@@ -381,7 +410,7 @@ const HeartbeatTransition = () => {
             delay: 0.5,
           }}
           className="absolute inset-0 w-48 h-48 -translate-x-24 -translate-y-24 
-                     rounded-full bg-camp-cyan/50 blur-lg"
+                     rounded-full bg-[color:var(--sb-accent)] opacity-[.50] blur-lg"
         />
         
         {/* Core heartbeat */}
@@ -400,8 +429,8 @@ const HeartbeatTransition = () => {
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="w-32 h-32 rounded-full bg-gradient-to-br from-camp-cyan to-camp-pink 
-                     shadow-2xl shadow-camp-cyan/50"
+          className="w-32 h-32 rounded-full bg-[color:var(--sb-accent)] 
+                     shadow-2xl"
         />
       </div>
     </motion.div>
@@ -410,6 +439,7 @@ const HeartbeatTransition = () => {
 
 // Top 3 Reveal Component
 const Top3Reveal = ({ teams }: { teams: Team[] }) => {
+  const { texts, fill } = useRevealTheme();
   const getTeamColorClass = (teamName: string) => {
     const name = teamName?.toLowerCase() || '';
     const colorMap: Record<string, string> = {
@@ -426,15 +456,15 @@ const Top3Reveal = ({ teams }: { teams: Team[] }) => {
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="fixed inset-0 bg-gradient-dark/95 backdrop-blur flex items-center justify-center z-30"
+      className="fixed inset-0 bg-[color:var(--sb-bg)] backdrop-blur flex items-center justify-center z-30"
     >
       <div className="flex flex-col items-center justify-center">
         <motion.h1
           initial={{ y: -50 }}
           animate={{ y: 0 }}
-          className="text-6xl md:text-8xl font-black bg-gradient-camp bg-clip-text text-transparent mb-16 text-center"
+          className="text-6xl md:text-8xl font-black text-[color:var(--sb-accent)] mb-16 text-center"
         >
-          TOP 3!
+          {fill(texts.top3Title)}
         </motion.h1>
         
         <div className="flex justify-center items-end gap-8">
@@ -454,11 +484,11 @@ const Top3Reveal = ({ teams }: { teams: Team[] }) => {
                 {top3Teams[1]?.name?.charAt(0)}
               </AvatarFallback>
             </Avatar>
-            <div className="text-3xl font-black text-muted-foreground mb-2">2</div>
+            <div className="text-3xl font-black text-[color:var(--sb-muted)] mb-2">2</div>
             <h3 className="text-2xl font-bold mb-2" style={{ color: top3Teams[1]?.color }}>
               {top3Teams[1]?.name}
             </h3>
-            <p className="text-xl text-muted-foreground">{top3Teams[1]?.total_points} pts</p>
+            <p className="text-xl text-[color:var(--sb-muted)]">{top3Teams[1]?.total_points} pts</p>
           </motion.div>
 
           {/* 1st Place */}
@@ -477,12 +507,12 @@ const Top3Reveal = ({ teams }: { teams: Team[] }) => {
                 {top3Teams[0]?.name?.charAt(0)}
               </AvatarFallback>
             </Avatar>
-            <div className="text-4xl font-black text-team-yellow mb-2">1</div>
-            <Crown className="w-12 h-12 text-team-yellow mx-auto mb-2 animate-bounce" />
+            <div className="text-4xl font-black text-[color:var(--sb-accent2)] mb-2">1</div>
+            <Crown className="w-12 h-12 text-[color:var(--sb-accent2)] mx-auto mb-2 animate-bounce" />
             <h3 className="text-3xl font-black mb-2" style={{ color: top3Teams[0]?.color }}>
               {top3Teams[0]?.name}
             </h3>
-            <p className="text-2xl text-team-yellow font-bold">{top3Teams[0]?.total_points} pts</p>
+            <p className="text-2xl text-[color:var(--sb-accent2)] font-bold">{top3Teams[0]?.total_points} pts</p>
           </motion.div>
 
           {/* 3rd Place */}
@@ -501,11 +531,11 @@ const Top3Reveal = ({ teams }: { teams: Team[] }) => {
                 {top3Teams[2]?.name?.charAt(0)}
               </AvatarFallback>
             </Avatar>
-            <div className="text-2xl font-black text-team-orange mb-2">3</div>
+            <div className="text-2xl font-black text-[color:var(--sb-accent2)] mb-2">3</div>
             <h3 className="text-xl font-bold mb-2" style={{ color: top3Teams[2]?.color }}>
               {top3Teams[2]?.name}
             </h3>
-            <p className="text-lg text-muted-foreground">{top3Teams[2]?.total_points} pts</p>
+            <p className="text-lg text-[color:var(--sb-muted)]">{top3Teams[2]?.total_points} pts</p>
           </motion.div>
         </div>
       </div>
@@ -515,6 +545,7 @@ const Top3Reveal = ({ teams }: { teams: Team[] }) => {
 
 // Winner Image Display Component
 const WinnerImageDisplay = ({ winner, onTriggerConfetti }: { winner: Team, onTriggerConfetti: () => void }) => {
+  const { texts, fill } = useRevealTheme();
   useEffect(() => {
     // Trigger confetti after 3 seconds when component mounts
     onTriggerConfetti();
@@ -524,15 +555,15 @@ const WinnerImageDisplay = ({ winner, onTriggerConfetti }: { winner: Team, onTri
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="fixed inset-0 bg-gradient-dark/95 backdrop-blur flex items-center justify-center z-30"
+      className="fixed inset-0 bg-[color:var(--sb-bg)] backdrop-blur flex items-center justify-center z-30"
     >
       <div className="text-center max-w-4xl mx-auto px-4">
         <motion.h1
           animate={{ scale: [1, 1.1, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="text-6xl md:text-8xl font-black bg-gradient-camp bg-clip-text text-transparent mb-8"
+          className="text-6xl md:text-8xl font-black text-[color:var(--sb-accent)] mb-8"
         >
-          É CAMPEÃ!!!
+          {fill(texts.winnerTitle, { team: winner.name })}
         </motion.h1>
         
         <motion.div
@@ -541,20 +572,22 @@ const WinnerImageDisplay = ({ winner, onTriggerConfetti }: { winner: Team, onTri
           transition={{ delay: 0.5 }}
           className="mb-8"
         >
-          <img
-            src="/RED-206.jpg"
-            className="max-w-full max-h-96 mx-auto rounded-2xl shadow-2xl border-4"
-            style={{ borderColor: winner.color }}
-            onError={(e) => {
-              // Fallback if image fails to load
-              e.currentTarget.style.display = 'none';
-              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-              if (fallback) fallback.style.display = 'block';
-            }}
-          />
-          {/* Fallback content if image fails */}
+          {winner.photo_url && (
+            <img
+              src={winner.photo_url}
+              className="max-w-full max-h-96 mx-auto rounded-2xl shadow-2xl border-4"
+              style={{ borderColor: winner.color }}
+              onError={(e) => {
+                // Fallback if image fails to load
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                if (fallback) fallback.style.display = 'block';
+              }}
+            />
+          )}
+          {/* Avatar card when there is no photo (or it fails to load) */}
           <div 
-            className="hidden bg-card/95 backdrop-blur-sm rounded-2xl p-12 shadow-elevation border-4"
+            className={`${winner.photo_url ? 'hidden' : ''} bg-[color:var(--sb-panel)] backdrop-blur-sm rounded-2xl p-12 shadow-elevation border-4`}
             style={{ borderColor: winner.color }}
           >
             <Avatar className="w-32 h-32 mx-auto mb-6 border-4 shadow-2xl" style={{ borderColor: winner.color }}>
@@ -569,7 +602,7 @@ const WinnerImageDisplay = ({ winner, onTriggerConfetti }: { winner: Team, onTri
             <h2 className="text-6xl font-black mb-4" style={{ color: winner.color }}>
               {winner.name}
             </h2>
-            <div className="text-4xl font-bold text-foreground">
+            <div className="text-4xl font-bold text-[color:var(--sb-text)]">
               {winner.total_points} pontos
             </div>
           </div>
@@ -581,7 +614,7 @@ const WinnerImageDisplay = ({ winner, onTriggerConfetti }: { winner: Team, onTri
         >
           {winner.name}
         </motion.h2>
-        <p className="text-2xl text-muted-foreground">
+        <p className="text-2xl text-[color:var(--sb-muted)]">
           {winner.total_points} pontos
         </p>
       </div>
@@ -599,6 +632,7 @@ const FinalRevealSpectacle = ({
   currentPhase: RevealPhase,
   onTriggerConfetti: () => void
 }) => {
+  const { texts, fill } = useRevealTheme();
   // Show countdown
   if (currentPhase.type === 'countdown') {
     return (
@@ -611,16 +645,16 @@ const FinalRevealSpectacle = ({
           <motion.h1
             animate={{ scale: [1, 1.1, 1] }}
             transition={{ duration: 1, repeat: Infinity }}
-            className="text-8xl font-black bg-gradient-camp bg-clip-text text-transparent mb-8"
+            className="text-8xl font-black text-[color:var(--sb-accent)] mb-8"
           >
-            CHEGOU A HORA...
+            {fill(texts.countdownTitle)}
           </motion.h1>
           <motion.div
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-6xl font-bold text-camp-cyan"
+            className="text-6xl font-bold text-[color:var(--sb-accent)]"
           >
-            INICIANDO A APURAÇÃO!
+            {fill(texts.countdownSubtitle)}
           </motion.div>
         </div>
       </motion.div>
@@ -663,13 +697,13 @@ const FinalRevealSpectacle = ({
                     key={team.id}
                     className="relative"
                   >
-                    <Card className="bg-card/20 border-dashed border-muted-foreground/30 h-64">
+                    <Card className="bg-[color:var(--sb-panel)] border-dashed border-muted-foreground/30 h-64">
                       <CardContent className="flex items-center justify-center h-full">
                         <div className="text-center">
-                          <div className="text-6xl font-black text-muted-foreground/50 mb-2">
+                          <div className="text-6xl font-black text-[color:var(--sb-muted)]/50 mb-2">
                             #{team.rank}
                           </div>
-                          <div className="text-muted-foreground">???</div>
+                          <div className="text-[color:var(--sb-muted)]">???</div>
                         </div>
                       </CardContent>
                     </Card>
@@ -740,9 +774,9 @@ const TeamRevealCard = ({
       <Card 
         className={`
           relative overflow-hidden transition-all duration-500
-          ${isCurrentlyRevealing ? 'shadow-2xl shadow-camp-cyan/50 scale-105' : ''}
+          ${isCurrentlyRevealing ? 'shadow-2xl scale-105' : ''}
           ${isCelebration ? 'animate-pulse shadow-2xl shadow-team-yellow/50' : ''}
-          bg-gradient-to-br from-card via-card to-card/50
+          bg-[color:var(--sb-panel)]
           border-2 border-${teamColorClass}
         `}
         style={{
@@ -763,9 +797,9 @@ const TeamRevealCard = ({
         {/* Special Icons for Top 3 */}
         {team.rank <= 3 && (
           <div className="absolute top-4 left-4">
-            {team.rank === 1 && <Crown className="w-8 h-8 text-team-yellow animate-bounce" />}
-            {team.rank === 2 && <Trophy className="w-8 h-8 text-muted-foreground animate-bounce" />}
-            {team.rank === 3 && <Star className="w-8 h-8 text-team-orange animate-bounce" />}
+            {team.rank === 1 && <Crown className="w-8 h-8 text-[color:var(--sb-accent2)] animate-bounce" />}
+            {team.rank === 2 && <Trophy className="w-8 h-8 text-[color:var(--sb-muted)] animate-bounce" />}
+            {team.rank === 3 && <Star className="w-8 h-8 text-[color:var(--sb-accent2)] animate-bounce" />}
           </div>
         )}
 
@@ -774,7 +808,7 @@ const TeamRevealCard = ({
           <motion.div
             animate={{ opacity: [0, 0.3, 0] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="absolute inset-0 bg-camp-cyan/20 rounded-lg"
+            className="absolute inset-0 bg-[color:var(--sb-accent)] opacity-20 rounded-lg"
           />
         )}
 
@@ -801,7 +835,7 @@ const TeamRevealCard = ({
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
               <TrendingUp className="w-6 h-6" style={{ color: team.color }} />
-              <span className="text-lg font-semibold text-muted-foreground">Pontos Finais</span>
+              <span className="text-lg font-semibold text-[color:var(--sb-muted)]">Pontos Finais</span>
             </div>
             <motion.div 
               initial={{ scale: 0 }}
@@ -827,11 +861,13 @@ const FinalRevealComplete = ({
   winner: Team, 
   allTeams: Team[], 
 }) => {
+  const { texts, fill } = useRevealTheme();
+  const vars = { team: winner.name };
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="min-h-screen bg-gradient-glow"
+      className="min-h-screen bg-[color:var(--sb-bg)]"
     >
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
         <motion.div
@@ -839,30 +875,30 @@ const FinalRevealComplete = ({
           animate={{ scale: 1 }}
           className="text-center w-full max-w-4xl"
         >
-          <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
+          <Card className="bg-[color:var(--sb-panel)] backdrop-blur-sm border-[color:var(--sb-accent)]">
             <CardContent className="text-center space-y-8 p-8">
               <motion.h1
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 3, repeat: Infinity }}
-                className="text-6xl font-black bg-gradient-camp bg-clip-text text-transparent mb-8"
+                className="text-6xl font-black text-[color:var(--sb-accent)] mb-8"
               >
-                ACAMPAMENTO 25+ FINALIZADO!
+                {fill(texts.completeTitle, vars)}
               </motion.h1>
               
-              <div className="bg-gradient-to-r from-transparent via-camp-cyan/20 to-transparent p-8 rounded-xl">
+              <div className="bg-[color:var(--sb-panel)] p-8 rounded-xl">
                 <h2 className="text-4xl font-bold mb-4" style={{ color: winner.color }}>
-                  GRANDE VENCEDOR: {winner.name}
+                  {fill(texts.completeSubtitle, vars)}
                 </h2>
-                <p className="text-2xl text-muted-foreground">
+                <p className="text-2xl text-[color:var(--sb-muted)]">
                   Com {winner.total_points} pontos!
                 </p>
               </div>
               
               <div className="space-y-4">
                 
-                <div className="text-muted-foreground">
-                  <p className="text-lg">"Sede, pois, imitadores de Deus, como filhos amados"</p>
-                  <p className="text-sm mt-2">Efésios 5:1</p>
+                <div className="text-[color:var(--sb-muted)]">
+                  {texts.verse && <p className="text-lg">"{texts.verse}"</p>}
+                  {texts.verseRef && <p className="text-sm mt-2">{texts.verseRef}</p>}
                 </div>
               </div>
             </CardContent>
@@ -906,9 +942,9 @@ const DramaticBackground = ({ active, phase }: { active: boolean, phase: RevealP
               repeat: Infinity,
               delay: Math.random() * 2
             }}
-            className="absolute w-2 h-2 bg-camp-cyan rounded-full"
+            className="absolute w-2 h-2 bg-[color:var(--sb-accent)] rounded-full"
             style={{
-              backgroundColor: Math.random() > 0.5 ? '#23dbf3' : '#ee1147'
+              backgroundColor: Math.random() > 0.5 ? 'var(--sb-accent)' : 'var(--sb-accent2)'
             }}
           />
         ))}
@@ -917,7 +953,7 @@ const DramaticBackground = ({ active, phase }: { active: boolean, phase: RevealP
       {/* Spotlight Effect */}
       <motion.div
         animate={{ opacity: getIntensity() * 0.3 }}
-        className="absolute inset-0 bg-gradient-radial from-transparent via-camp-cyan/20 to-camp-pink/20"
+        className="absolute inset-0 bg-[radial-gradient(circle,transparent,color-mix(in_srgb,var(--sb-accent)_20%,transparent))]"
       />
     </>
   );

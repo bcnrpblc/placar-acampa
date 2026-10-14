@@ -46,7 +46,8 @@ CREATE TABLE public.events (
   starts_at timestamptz,
   ended_at timestamptz,
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  theme jsonb, -- reserved for future theming / AI themes; unused in Phase 1
+  theme jsonb, -- per-event look: colors, font, logo, background (see src/lib/theme.ts)
+  reveal_texts jsonb, -- per-event reveal texts by kind: day | game | final (see src/lib/revealTexts.ts)
   final_snapshot jsonb, -- written when event is ended
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -61,6 +62,7 @@ CREATE TABLE public.teams (
   name text NOT NULL,
   color varchar(7) NOT NULL,
   avatar_url text,
+  photo_url text, -- optional photo for the reveal pages
   created_at timestamptz DEFAULT now(),
   UNIQUE (event_id, name)
 );
@@ -621,3 +623,34 @@ CREATE POLICY "Admins delete team mascots"
   USING (bucket_id = 'team-mascots' AND public.is_admin());
 
 -- No seed data — admins create events, teams, and games in the UI.
+
+-- ---------------------------------------------------------------------------
+-- Storage: event assets (design image, logo, background)
+-- ---------------------------------------------------------------------------
+-- Public bucket for event design images, logos and background images.
+-- Paths: <event_id>/design-<ts>.ext, <event_id>/logo-<ts>.ext, <event_id>/bg-<ts>.ext
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'event-assets',
+  'event-assets',
+  true,
+  8388608,
+  ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Public read event assets"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'event-assets');
+
+CREATE POLICY "Admins upload event assets"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'event-assets' AND public.is_admin());
+
+CREATE POLICY "Admins update event assets"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'event-assets' AND public.is_admin());
+
+CREATE POLICY "Admins delete event assets"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'event-assets' AND public.is_admin());

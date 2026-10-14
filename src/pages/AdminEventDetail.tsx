@@ -5,6 +5,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { AdminPanel } from "@/components/AdminPanel";
 import { ParticipantsTab } from "@/components/ParticipantsTab";
 import { RevealControls } from "@/components/RevealControls";
+import { RevealTextsEditor } from "@/components/RevealTextsEditor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -141,10 +142,12 @@ const AdminEventDetail = () => {
   const deleteEvent = async () => {
     if (!event || confirmSlug !== event.slug) return;
     // Mascot files live under <event id>/ in the bucket; remove them first.
-    for (const dir of [event.id, `${event.id}/players`]) {
-      const { data: files } = await supabase.storage.from("team-mascots").list(dir);
-      const names = (files ?? []).filter((f) => f.id).map((f) => `${dir}/${f.name}`);
-      if (names.length) await supabase.storage.from("team-mascots").remove(names);
+    for (const bucket of ["team-mascots", "event-assets"]) {
+      for (const dir of [event.id, `${event.id}/players`, `${event.id}/photos`]) {
+        const { data: files } = await supabase.storage.from(bucket).list(dir);
+        const names = (files ?? []).filter((f) => f.id).map((f) => `${dir}/${f.name}`);
+        if (names.length) await supabase.storage.from(bucket).remove(names);
+      }
     }
     const { error } = await supabase.from("events").delete().eq("id", event.id);
     if (error) {
@@ -361,7 +364,7 @@ const AdminEventDetail = () => {
               <CardTitle>Cores do placar</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <ThemePicker value={theme} onChange={setTheme} disabled={readonly} />
+              <ThemePicker value={theme} onChange={setTheme} disabled={readonly} eventId={event?.id} />
               {!readonly && <Button size="sm" onClick={saveTheme}>Salvar cores</Button>}
             </CardContent>
           </Card>
@@ -529,7 +532,10 @@ const AdminEventDetail = () => {
           </TabsContent>
 
           <TabsContent value="reveals" className="mt-4">
-            <RevealControls eventId={event.id} slug={event.slug} games={games} />
+            <div className="space-y-4">
+              <RevealControls eventId={event.id} slug={event.slug} games={games} />
+              <RevealTextsEditor eventId={event.id} saved={event.reveal_texts} readonly={readonly} />
+            </div>
           </TabsContent>
 
           {event.scoring_mode === "individual" && (

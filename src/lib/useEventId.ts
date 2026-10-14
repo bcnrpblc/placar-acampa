@@ -11,6 +11,7 @@ export function useEventId() {
     title: string;
     subtitle: string | null;
     theme: Json | null;
+    reveal_texts: Json | null;
     status: "draft" | "live" | "ended";
     final_snapshot: Json | null;
   } | null>(null);
@@ -20,7 +21,7 @@ export function useEventId() {
     if (!slug) return;
     supabase
       .from("events")
-      .select("id, title, subtitle, theme, status, final_snapshot")
+      .select("id, title, subtitle, theme, reveal_texts, status, final_snapshot")
       .eq("slug", slug)
       .maybeSingle()
       .then(({ data }) => (data ? setEvent(data) : setNotFound(true)));

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,9 @@ import { useRevealScreen } from '@/lib/useRevealChannel';
 import { Trophy, Star, Sparkles, Crown, ArrowLeft, TrendingUp, Gamepad2, ChevronDown } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as React from "react";
+import { RevealThemeProvider, useRevealTheme } from '@/components/RevealThemeProvider';
+import { SHORT_REVEAL_TIMING as T, TOP3_MIN_TEAMS } from '@/lib/revealTiming';
+import { parseTheme, confettiColors } from '@/lib/theme';
 
 const GameReveal = () => {
   const [revealState, setRevealState] = useState<'selecting' | 'locking' | 'revealing' | 'complete'>('selecting');
@@ -17,7 +20,8 @@ const GameReveal = () => {
   const [games, setGames] = useState<any[]>([]);
   const [snapshot, setSnapshot] = useState<any>(null);
   const [currentPhase, setCurrentPhase] = useState(1);
-  const { eventId } = useEventId();
+  const { eventId, event } = useEventId();
+  const snapshotRef = useRef<any>(null);
 
   // Load available games on component mount
   useEffect(() => {
@@ -71,6 +75,7 @@ const GameReveal = () => {
           }))
         };
         
+        snapshotRef.current = formattedSnapshot;
         setSnapshot(formattedSnapshot);
         
         // Wait 2 seconds then start reveal
@@ -90,31 +95,33 @@ const GameReveal = () => {
   };
 
   const runRevealSequence = async () => {
-    // Phase 1: Time-based counting (10s)
+    // Phase 1: mystery count-up
     setCurrentPhase(1);
-    await wait(10000);
-    
-    // HEARTBEAT TRANSITION (4.5 seconds)
+    await wait(T.COUNT_UP);
+
+    // Heartbeat before the reveal
     setCurrentPhase(1.5);
-    await wait(4500);
-    
-    // Phase 2: Direct Top 3 spotlight (5s)
-    setCurrentPhase(2);
-    await wait(5000);
-    
-    // Phase 3: Extended winner celebration (60s)
+    await wait(T.HEARTBEAT);
+
+    // Phase 2: top 3 spotlight, only with enough teams
+    if ((snapshotRef.current?.teams.length ?? 0) >= TOP3_MIN_TEAMS) {
+      setCurrentPhase(2);
+      await wait(T.TOP3);
+    }
+
+    // Phase 3: winner celebration
     setCurrentPhase(3);
     triggerConfetti();
-    await wait(60000);
+    await wait(T.WINNER);
     
     setRevealState('complete');
   };
 
   const triggerConfetti = () => {
-    const duration = 60000; // 60 seconds
+    const duration = T.WINNER;
     const end = Date.now() + duration;
 
-    const colors = ['#23dbf3', '#ee1147', '#ffffff'];
+    const colors = confettiColors(parseTheme(event?.theme));
 
     (function frame() {
       confetti({
@@ -150,7 +157,8 @@ const GameReveal = () => {
   useRevealScreen(eventId, 'game', ({ gameId }) => handleStartReveal(gameId ?? ''));
 
   return (
-    <div className="min-h-screen bg-gradient-dark relative overflow-hidden">
+    <RevealThemeProvider event={event} kind="game">
+    <div className="min-h-screen bg-[color:var(--sb-bg)] relative overflow-hidden">
 
       {/* Animated Background */}
       <div className="absolute inset-0">
@@ -181,13 +189,15 @@ const GameReveal = () => {
         )}
       </AnimatePresence>
     </div>
+    </RevealThemeProvider>
   );
 };
 
 // Game Selection Panel Component
 const GameSelectionPanel = () => {
+  const { texts } = useRevealTheme();
   return (
-    <div className="min-h-screen bg-gradient-glow">
+    <div className="min-h-screen bg-[color:var(--sb-bg)]">
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -195,21 +205,25 @@ const GameSelectionPanel = () => {
           exit={{ opacity: 0, scale: 0.9 }}
           className="w-full max-w-4xl"
         >
-          <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
+          <Card className="bg-[color:var(--sb-panel)] backdrop-blur-sm border-[color:var(--sb-accent)]">
             <CardHeader className="text-center">
               <div className="flex justify-center mb-4">
-                <Gamepad2 className="w-16 h-16 text-camp-cyan" />
+                <Gamepad2 className="w-16 h-16 text-[color:var(--sb-accent)]" />
               </div>
-              <CardTitle className="text-6xl md:text-9xl font-black bg-gradient-camp bg-clip-text text-transparent mb-4">
-                APURAÇÃO POR JOGO
+              <CardTitle className="text-6xl md:text-9xl font-black text-[color:var(--sb-accent)] mb-4">
+                {texts.title}
               </CardTitle>
-              <p className="text-xl md:text-2xl text-muted-foreground mb-2">Acampamento 25+</p>
-              <div className="text-xl text-muted-foreground mt-2">
-                "Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1
-              </div>
+              {texts.subtitle && (
+                <p className="text-xl md:text-2xl text-[color:var(--sb-muted)] mb-2">{texts.subtitle}</p>
+              )}
+              {texts.verse && (
+                <div className="text-xl text-[color:var(--sb-muted)] mt-2">
+                  "{texts.verse}"{texts.verseRef && ` - ${texts.verseRef}`}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              <p className="text-center text-2xl md:text-4xl font-bold text-camp-cyan animate-pulse">
+              <p className="text-center text-2xl md:text-4xl font-bold text-[color:var(--sb-accent)] animate-pulse">
                 Aguardando o início da apuração...
               </p>
             </CardContent>
@@ -223,7 +237,7 @@ const GameSelectionPanel = () => {
 // Locking Animation Component
 const LockingAnimation = () => {
   return (
-    <div className="min-h-screen bg-gradient-glow">
+    <div className="min-h-screen bg-[color:var(--sb-bg)]">
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
         <motion.div
           initial={{ opacity: 0 }}
@@ -234,12 +248,12 @@ const LockingAnimation = () => {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="w-32 h-32 mx-auto mb-8 rounded-full border-8 border-camp-cyan border-t-camp-pink shadow-camp"
+            className="w-32 h-32 mx-auto mb-8 rounded-full border-8 border-[color:var(--sb-accent)] border-t-[color:var(--sb-accent2)] shadow-camp"
           ></motion.div>
-          <h2 className="text-4xl font-black text-foreground mb-4">
+          <h2 className="text-4xl font-black text-[color:var(--sb-text)] mb-4">
             CALCULANDO PONTUAÇÃO...
           </h2>
-          <p className="text-muted-foreground text-xl">
+          <p className="text-[color:var(--sb-muted)] text-xl">
             Preparando o resultado do jogo...
           </p>
         </motion.div>
@@ -269,7 +283,7 @@ const HeartbeatTransition = () => {
             ease: "easeInOut",
           }}
           className="absolute inset-0 w-64 h-64 -translate-x-32 -translate-y-32 
-                     rounded-full bg-camp-cyan/30 blur-xl"
+                     rounded-full bg-[color:var(--sb-accent)] opacity-[.30] blur-xl"
         />
         
         <motion.div
@@ -284,7 +298,7 @@ const HeartbeatTransition = () => {
             delay: 0.5,
           }}
           className="absolute inset-0 w-48 h-48 -translate-x-24 -translate-y-24 
-                     rounded-full bg-camp-cyan/50 blur-lg"
+                     rounded-full bg-[color:var(--sb-accent)] opacity-[.50] blur-lg"
         />
         
         <motion.div
@@ -302,8 +316,8 @@ const HeartbeatTransition = () => {
             repeat: 5,
             ease: "easeInOut",
           }}
-          className="w-32 h-32 rounded-full bg-gradient-to-br from-camp-cyan to-camp-pink 
-                     shadow-2xl shadow-camp-cyan/50"
+          className="w-32 h-32 rounded-full bg-[color:var(--sb-accent)] 
+                     shadow-2xl"
         />
       </div>
       
@@ -313,8 +327,8 @@ const HeartbeatTransition = () => {
         transition={{ delay: 0.5 }}
         className="absolute bottom-32 text-center"
       >
-        <p className="text-camp-cyan text-2xl font-bold animate-pulse">
-          Preparando o Top 3...
+        <p className="text-[color:var(--sb-accent)] text-2xl font-bold animate-pulse">
+          Preparando o resultado...
         </p>
       </motion.div>
     </motion.div>
@@ -324,7 +338,7 @@ const HeartbeatTransition = () => {
 // Reveal Spectacle Component
 const RevealSpectacle = ({ snapshot, phase }: any) => {
   return (
-    <div className="min-h-screen bg-gradient-dark">
+    <div className="min-h-screen bg-[color:var(--sb-bg)]">
       <div className="container mx-auto px-4 py-8">
         <motion.div
           initial={{ opacity: 0 }}
@@ -406,7 +420,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
         className={`
           relative overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-elevation
           ${highlighted ? 'animate-leader-glow' : ''}
-          bg-gradient-to-br from-card via-card to-card/50
+          bg-[color:var(--sb-panel)]
           border-2 border-border hover:border-${teamColorClass}
         `}
         style={{
@@ -424,9 +438,9 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
 
         {!hideRanking && rank <= 3 && (
           <div className="absolute top-4 left-4">
-            {rank === 1 && <Crown className="w-8 h-8 text-team-yellow animate-bounce" />}
-            {rank === 2 && <Trophy className="w-8 h-8 text-muted-foreground animate-bounce" />}
-            {rank === 3 && <Star className="w-8 h-8 text-team-orange animate-bounce" />}
+            {rank === 1 && <Crown className="w-8 h-8 text-[color:var(--sb-accent2)] animate-bounce" />}
+            {rank === 2 && <Trophy className="w-8 h-8 text-[color:var(--sb-muted)] animate-bounce" />}
+            {rank === 3 && <Star className="w-8 h-8 text-[color:var(--sb-accent2)] animate-bounce" />}
           </div>
         )}
 
@@ -450,7 +464,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
               <TrendingUp className={`w-6 h-6 text-${teamColorClass}`} />
-              <span className="text-lg font-semibold text-muted-foreground">Pontos no Jogo</span>
+              <span className="text-lg font-semibold text-[color:var(--sb-muted)]">Pontos no Jogo</span>
             </div>
             <motion.div 
               initial={{ scale: 0 }}
@@ -463,7 +477,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
                 style={{ color: team.color }}
               >
                 {phase === 1 && (
-                  <div className="text-sm text-muted-foreground mb-2">
+                  <div className="text-sm text-[color:var(--sb-muted)] mb-2">
                     CALCULANDO...
                   </div>
                 )}
@@ -488,6 +502,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
 
 // Top 3 Spotlight Component
 const Top3Spotlight = ({ teams }: any) => {
+  const { texts, fill } = useRevealTheme();
   const getTeamColorClass = (teamName: string) => {
     const name = teamName?.toLowerCase() || '';
     const colorMap: Record<string, string> = {
@@ -509,16 +524,16 @@ const Top3Spotlight = ({ teams }: any) => {
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="fixed inset-0 bg-gradient-dark/90 backdrop-blur-sm z-20 overflow-hidden"
+      className="fixed inset-0 bg-[color:var(--sb-bg)] backdrop-blur-sm z-20 overflow-hidden"
     >
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="flex flex-col items-center justify-center scale-[1.2] transform-gpu">
           <motion.h2
             initial={{ y: -50 }}
             animate={{ y: 0 }}
-            className="text-4xl md:text-6xl font-black bg-gradient-camp bg-clip-text text-transparent mb-16 md:mb-20 text-center whitespace-nowrap"
+            className="text-4xl md:text-6xl font-black text-[color:var(--sb-accent)] mb-16 md:mb-20 text-center whitespace-nowrap"
           >
-            TOP 3 DO JOGO! 🏆
+            {fill(texts.top3Title)}
           </motion.h2>
           
           <div className="flex justify-center items-end gap-4 md:gap-8">
@@ -545,11 +560,11 @@ const Top3Spotlight = ({ teams }: any) => {
                     </AvatarFallback>
                   </Avatar>
                 </motion.div>
-                <div className="text-2xl md:text-3xl font-black text-muted-foreground mb-4">2</div>
-                <h3 className="text-xl md:text-2xl font-bold text-foreground mb-2" style={{ color: teams[1]?.color }}>
+                <div className="text-2xl md:text-3xl font-black text-[color:var(--sb-muted)] mb-4">2</div>
+                <h3 className="text-xl md:text-2xl font-bold text-[color:var(--sb-text)] mb-2" style={{ color: teams[1]?.color }}>
                   {teams[1]?.name}
                 </h3>
-                <p className="text-lg md:text-xl text-muted-foreground">{teams[1]?.total_points} pts</p>
+                <p className="text-lg md:text-xl text-[color:var(--sb-muted)]">{teams[1]?.total_points} pts</p>
               </motion.div>
             )}
 
@@ -576,12 +591,12 @@ const Top3Spotlight = ({ teams }: any) => {
                     </AvatarFallback>
                   </Avatar>
                 </motion.div>
-                <div className="text-3xl md:text-4xl font-black text-team-yellow mb-2">1</div>
-                <Crown className="w-10 md:w-12 h-10 md:h-12 text-team-yellow mx-auto mb-2 animate-bounce" />
-                <h3 className="text-2xl md:text-3xl font-black text-foreground mb-2" style={{ color: teams[0]?.color }}>
+                <div className="text-3xl md:text-4xl font-black text-[color:var(--sb-accent2)] mb-2">1</div>
+                <Crown className="w-10 md:w-12 h-10 md:h-12 text-[color:var(--sb-accent2)] mx-auto mb-2 animate-bounce" />
+                <h3 className="text-2xl md:text-3xl font-black text-[color:var(--sb-text)] mb-2" style={{ color: teams[0]?.color }}>
                   {teams[0]?.name}
                 </h3>
-                <p className="text-xl md:text-2xl text-team-yellow font-bold">{teams[0]?.total_points} pts</p>
+                <p className="text-xl md:text-2xl text-[color:var(--sb-accent2)] font-bold">{teams[0]?.total_points} pts</p>
               </motion.div>
             )}
 
@@ -608,11 +623,11 @@ const Top3Spotlight = ({ teams }: any) => {
                     </AvatarFallback>
                   </Avatar>
                 </motion.div>
-                <div className="text-xl md:text-2xl font-black text-team-orange mb-4">3</div>
-                <h3 className="text-lg md:text-xl font-bold text-foreground mb-2" style={{ color: teams[2]?.color }}>
+                <div className="text-xl md:text-2xl font-black text-[color:var(--sb-accent2)] mb-4">3</div>
+                <h3 className="text-lg md:text-xl font-bold text-[color:var(--sb-text)] mb-2" style={{ color: teams[2]?.color }}>
                   {teams[2]?.name}
                 </h3>
-                <p className="text-base md:text-lg text-muted-foreground">{teams[2]?.total_points} pts</p>
+                <p className="text-base md:text-lg text-[color:var(--sb-muted)]">{teams[2]?.total_points} pts</p>
               </motion.div>
             )}
           </div>
@@ -624,20 +639,21 @@ const Top3Spotlight = ({ teams }: any) => {
 
 // Winner Celebration Component - NOW WITH GAME TITLE
 const WinnerCelebration = ({ winner, gameTitle }: any) => {
+  const { texts, fill } = useRevealTheme();
   return (
     <motion.div
       initial={{ scale: 0, rotate: -180 }}
       animate={{ scale: 1, rotate: 0 }}
       transition={{ type: "spring", duration: 1 }}
-      className="fixed inset-0 bg-gradient-dark/95 backdrop-blur flex items-center justify-center z-30"
+      className="fixed inset-0 bg-[color:var(--sb-bg)] backdrop-blur flex items-center justify-center z-30"
     >
       <div className="text-center">
         <motion.h1
           animate={{ scale: [1, 1.1, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="text-8xl font-black bg-gradient-camp bg-clip-text text-transparent mb-4 drop-shadow-2xl"
+          className="text-8xl font-black text-[color:var(--sb-accent)] mb-4 drop-shadow-2xl"
         >
-          🏆 EQUIPE CAMPEÃ! 🏆
+          {fill(texts.winnerTitle, { team: winner.name, game: gameTitle })}
         </motion.h1>
         
         {/* Game Title Display */}
@@ -645,9 +661,9 @@ const WinnerCelebration = ({ winner, gameTitle }: any) => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-3xl md:text-4xl font-bold text-muted-foreground mb-8"
+          className="text-3xl md:text-4xl font-bold text-[color:var(--sb-muted)] mb-8"
         >
-          Vencedor de: <span className="text-camp-cyan">{gameTitle}</span>
+          <span className="text-[color:var(--sb-accent)]">{gameTitle}</span>
         </motion.h2>
         
         <motion.div
@@ -656,7 +672,7 @@ const WinnerCelebration = ({ winner, gameTitle }: any) => {
           transition={{ delay: 0.5 }}
         >
           <Card 
-            className="bg-card/95 backdrop-blur-sm rounded-3xl p-12 shadow-elevation max-w-2xl mx-auto border-4"
+            className="bg-[color:var(--sb-panel)] backdrop-blur-sm rounded-3xl p-12 shadow-elevation max-w-2xl mx-auto border-4"
             style={{ borderColor: winner.color }}
           >
             <Avatar className="w-32 h-32 mx-auto mb-6 border-4 shadow-2xl" style={{ borderColor: winner.color }}>
@@ -672,7 +688,7 @@ const WinnerCelebration = ({ winner, gameTitle }: any) => {
             <h2 className="text-6xl font-black mb-6" style={{ color: winner.color }}>
               {winner.name}
             </h2>
-            <div className="text-5xl font-bold text-foreground mb-4">
+            <div className="text-5xl font-bold text-[color:var(--sb-text)] mb-4">
               {winner.total_points} pontos
             </div>
             
@@ -680,7 +696,7 @@ const WinnerCelebration = ({ winner, gameTitle }: any) => {
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
             >
-              <Crown className="w-16 h-16 text-team-yellow mx-auto" />
+              <Crown className="w-16 h-16 text-[color:var(--sb-accent2)] mx-auto" />
             </motion.div>
           </Card>
         </motion.div>
@@ -691,33 +707,32 @@ const WinnerCelebration = ({ winner, gameTitle }: any) => {
 
 // Reveal Complete Component
 const RevealComplete = ({ snapshot }: any) => {
+  const { texts, fill } = useRevealTheme();
+  const vars = { team: snapshot.teams[0].name, game: snapshot.game_title };
   return (
-    <div className="min-h-screen bg-gradient-glow">
+    <div className="min-h-screen bg-[color:var(--sb-bg)]">
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-center w-full max-w-2xl"
         >
-          <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
+          <Card className="bg-[color:var(--sb-panel)] backdrop-blur-sm border-[color:var(--sb-accent)]">
             <CardContent className="text-center space-y-8 p-8">
-              <h1 className="text-6xl font-black bg-gradient-camp bg-clip-text text-transparent mb-4">
-                Apuração Completa! ✨
+              <h1 className="text-6xl font-black text-[color:var(--sb-accent)] mb-4">
+                {fill(texts.completeTitle, vars)}
               </h1>
               
               <div className="space-y-2 mb-6">
-                <p className="text-2xl text-muted-foreground">
-                  Jogo: <span className="text-camp-cyan font-bold">{snapshot.game_title}</span>
-                </p>
-                <p className="text-xl">
-                  Parabéns à equipe <span style={{ color: snapshot.teams[0].color }} className="font-bold">{snapshot.teams[0].name}</span>!
-                </p>
+                <p className="text-2xl text-[color:var(--sb-muted)]">{fill(texts.completeSubtitle, vars)}</p>
               </div>
               
               <div className="space-y-4">
                 
-                <div className="text-muted-foreground">
-                  <p className="text-sm mt-4">"Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1</p>
+                <div className="text-[color:var(--sb-muted)]">
+                  {texts.verse && (
+                    <p className="text-sm mt-4">"{texts.verse}"{texts.verseRef && ` - ${texts.verseRef}`}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -752,9 +767,9 @@ const ParticleField = ({ active }: { active: boolean }) => {
             repeat: Infinity,
             delay: Math.random() * 2
           }}
-          className="absolute w-2 h-2 bg-camp-cyan rounded-full"
+          className="absolute w-2 h-2 bg-[color:var(--sb-accent)] rounded-full"
           style={{
-            backgroundColor: Math.random() > 0.5 ? '#23dbf3' : '#ee1147'
+            backgroundColor: Math.random() > 0.5 ? 'var(--sb-accent)' : 'var(--sb-accent2)'
           }}
         />
       ))}
@@ -770,7 +785,7 @@ const SpotlightEffect = ({ active }: { active: boolean }) => {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 0.3 }}
-      className="absolute inset-0 bg-gradient-radial from-transparent via-camp-cyan/20 to-camp-pink/20"
+      className="absolute inset-0 bg-[radial-gradient(circle,transparent,color-mix(in_srgb,var(--sb-accent)_20%,transparent))]"
     />
   );
 };

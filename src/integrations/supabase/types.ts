@@ -93,6 +93,7 @@ export type Database = {
           subtitle: string | null
           status: Database["public"]["Enums"]["event_status"]
           theme: Json | null
+          reveal_texts: Json | null
           title: string
           updated_at: string | null
         }
@@ -108,6 +109,7 @@ export type Database = {
           subtitle?: string | null
           status?: Database["public"]["Enums"]["event_status"]
           theme?: Json | null
+          reveal_texts?: Json | null
           title: string
           updated_at?: string | null
         }
@@ -123,6 +125,7 @@ export type Database = {
           subtitle?: string | null
           status?: Database["public"]["Enums"]["event_status"]
           theme?: Json | null
+          reveal_texts?: Json | null
           title?: string
           updated_at?: string | null
         }
@@ -362,6 +365,7 @@ export type Database = {
           event_id: string
           id: string
           name: string
+          photo_url: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -370,6 +374,7 @@ export type Database = {
           event_id: string
           id?: string
           name: string
+          photo_url?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -378,6 +383,7 @@ export type Database = {
           event_id?: string
           id?: string
           name?: string
+          photo_url?: string | null
         }
         Relationships: [
           {
