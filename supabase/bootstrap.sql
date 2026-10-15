@@ -635,7 +635,7 @@ VALUES (
   'event-assets',
   true,
   8388608,
-  ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+  ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain']
 )
 ON CONFLICT (id) DO NOTHING;
 

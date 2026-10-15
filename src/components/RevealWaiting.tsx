@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
+import { revealBgStyle } from "@/lib/theme";
 import { useRevealTheme } from "@/components/RevealThemeProvider";
 
 /**
@@ -15,10 +16,10 @@ export const RevealWaiting = ({
   icon?: ReactNode;
   extra?: ReactNode;
 }) => {
-  const { texts } = useRevealTheme();
+  const { texts, theme } = useRevealTheme();
   const titleSize = texts.title.length > 24 ? 8 : texts.title.length > 16 ? 10 : 13;
   return (
-    <div className="min-h-screen bg-[color:var(--sb-bg)] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[color:var(--sb-bg)] flex items-center justify-center px-4" style={revealBgStyle(theme, "bgWaiting")}>
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}

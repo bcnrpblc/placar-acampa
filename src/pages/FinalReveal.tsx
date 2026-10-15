@@ -53,7 +53,6 @@ const REVEAL_TIMING = {
   WINNER_IMAGE: 30000,  // Show winner image: 30s
   CONFETTI_DELAY: 3000, // Start confetti 3s after the winner is shown
   CONFETTI_DURATION: 60000, // Confetti duration: 60s
-  CELEBRATION: 30000,   // Final celebration: 30s
   
   // Initial phases
   COUNTDOWN: 7000,      // Initial countdown: 7s
@@ -196,11 +195,7 @@ const FinalReveal = () => {
     setCurrentPhase({ type: 'winner_image', duration: REVEAL_TIMING.WINNER_IMAGE });
     await wait(REVEAL_TIMING.WINNER_IMAGE);
 
-    // Phase 5: Final celebration (confetti continues from winner image phase)
-    setCurrentPhase({ type: 'celebration', duration: REVEAL_TIMING.CELEBRATION });
-    // Note: Confetti is still running from the winner image phase
-    await wait(REVEAL_TIMING.CELEBRATION);
-    
+    // The winner screen goes straight to the closing card; confetti keeps running over it
     setRevealState('complete');
   };
 

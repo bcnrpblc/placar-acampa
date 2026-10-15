@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { revealBgStyle } from "@/lib/theme";
 import { useRevealTheme } from "@/components/RevealThemeProvider";
 
 /** Closing card shared by the day, game and final reveals. */
@@ -14,10 +15,10 @@ export const RevealClosing = ({
   teamColor?: string;
   detail?: string;
 }) => {
-  const { texts } = useRevealTheme();
+  const { texts, theme } = useRevealTheme();
   const titleSize = title.length > 28 ? 6.5 : title.length > 18 ? 8 : 10;
   return (
-    <div className="min-h-screen bg-[color:var(--sb-bg)] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[color:var(--sb-bg)] flex items-center justify-center px-4" style={revealBgStyle(theme, "bgClosing")}>
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}

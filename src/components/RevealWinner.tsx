@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { revealBgStyle } from "@/lib/theme";
+import { useRevealTheme } from "@/components/RevealThemeProvider";
 import { motion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -21,6 +23,7 @@ export const RevealWinner = ({
   eyebrow?: string;
   winner: WinnerTeam;
 }) => {
+  const { theme } = useRevealTheme();
   const [photoFailed, setPhotoFailed] = useState(false);
   // Long custom titles wrap, so shrink them to keep photo, name and points on one screen
   const titleSize = title.length > 28 ? 7 : title.length > 16 ? 9 : 12;
@@ -31,7 +34,7 @@ export const RevealWinner = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[color:var(--sb-bg)] text-center"
-      style={{ padding: "5vmin 6vmin", gap: "3.5vmin" }}
+      style={{ padding: "5vmin 6vmin", gap: "3.5vmin", ...revealBgStyle(theme, "bgWinner") }}
     >
       <div className="flex flex-col items-center" style={{ gap: "1.5vmin" }}>
         <motion.h1

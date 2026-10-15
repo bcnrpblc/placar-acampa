@@ -6,6 +6,10 @@ export const THEME_FONTS = {
   oswald: { label: "Oswald", family: '"Oswald", "Barlow Condensed", sans-serif' },
   bebas: { label: "Bebas Neue", family: '"Bebas Neue", "Barlow Condensed", sans-serif' },
   anton: { label: "Anton", family: '"Anton", "Barlow Condensed", sans-serif' },
+  lilita: { label: "Lilita One (arredondada, pesada)", family: '"Lilita One", "Barlow Condensed", sans-serif' },
+  bowlby: { label: "Bowlby One (bloco largo)", family: '"Bowlby One", "Barlow Condensed", sans-serif' },
+  paytone: { label: "Paytone One (arredondada)", family: '"Paytone One", "Barlow Condensed", sans-serif' },
+  rubik: { label: "Rubik ExtraBold (geométrica)", family: '"Rubik", "Barlow Condensed", sans-serif' },
 } as const;
 
 export type ThemeFont = keyof typeof THEME_FONTS;
@@ -31,6 +35,10 @@ export type EventTheme = {
   /** Public URL of the event logo; only shown when useLogo is true. */
   logo?: string;
   useLogo?: boolean;
+  /** Also paint bgImage (under the overlay) on the opening, champion and closing screens of the reveals. */
+  bgWaiting?: boolean;
+  bgWinner?: boolean;
+  bgClosing?: boolean;
 };
 
 type ColorKey = "background" | "text" | "accent";
@@ -63,6 +71,7 @@ export function parseTheme(json: Json | null | undefined): EventTheme {
   if (typeof t.bgOverlay === "number") theme.bgOverlay = Math.min(1, Math.max(0, t.bgOverlay));
   if (isUrl(t.logo)) theme.logo = t.logo;
   if (typeof t.useLogo === "boolean") theme.useLogo = t.useLogo;
+  for (const k of ["bgWaiting", "bgWinner", "bgClosing"] as const) if (typeof t[k] === "boolean") theme[k] = t[k] as boolean;
   return theme;
 }
 
@@ -91,6 +100,23 @@ export function confettiColors(theme: EventTheme) {
   return theme.confetti ?? [theme.accent, theme.text, theme.accent2 ?? theme.accent];
 }
 
+/** Background image under a color overlay (see bgOverlay). Empty when the theme has no image. */
+export function bgImageStyle(theme: EventTheme): CSSProperties {
+  if (!theme.bgImage) return {};
+  const pct = Math.round((theme.bgOverlay ?? 0.7) * 100);
+  const veil = `color-mix(in srgb, ${theme.background} ${pct}%, transparent)`;
+  return {
+    backgroundImage: `linear-gradient(${veil}, ${veil}), url("${theme.bgImage}")`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  };
+}
+
+/** The image for a full-screen reveal card, only when the admin enabled it for that screen. */
+export function revealBgStyle(theme: EventTheme, screen: "bgWaiting" | "bgWinner" | "bgClosing"): CSSProperties {
+  return theme[screen] ? bgImageStyle(theme) : {};
+}
+
 /** CSS custom properties + base paint for a themed root element. */
 export function themeStyle(theme: EventTheme): CSSProperties {
   const style: Record<string, string> = {
@@ -104,11 +130,6 @@ export function themeStyle(theme: EventTheme): CSSProperties {
     background: theme.background,
     color: theme.text,
   };
-  if (theme.bgImage) {
-    const o = theme.bgOverlay ?? 0.7;
-    style.backgroundImage = `linear-gradient(color-mix(in srgb, ${theme.background} ${Math.round(o * 100)}%, transparent), color-mix(in srgb, ${theme.background} ${Math.round(o * 100)}%, transparent)), url("${theme.bgImage}")`;
-    style.backgroundSize = "cover";
-    style.backgroundPosition = "center";
-  }
+  Object.assign(style, bgImageStyle(theme));
   return style as CSSProperties;
 }
