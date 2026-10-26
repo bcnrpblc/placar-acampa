@@ -267,7 +267,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT public.is_admin() THEN
+  IF NOT public.is_superadmin() THEN
     RETURN false;
   END IF;
 
@@ -286,7 +286,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT public.is_admin() THEN
+  IF NOT public.is_superadmin() THEN
     RETURN false;
   END IF;
 
@@ -437,10 +437,11 @@ CREATE POLICY "Team aggregates are viewable by everyone"
   ON public.team_aggregates FOR SELECT USING (true);
 CREATE POLICY "Daily snapshots are viewable by everyone"
   ON public.daily_snapshots FOR SELECT USING (true);
-CREATE POLICY "Admin audit logs viewable by everyone"
-  ON public.admin_audit_log FOR SELECT USING (true);
-CREATE POLICY "Profiles are viewable by everyone"
-  ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Admin audit logs viewable by admins"
+  ON public.admin_audit_log FOR SELECT TO authenticated USING (public.is_admin());
+CREATE POLICY "Profiles viewable by self or admins"
+  ON public.profiles FOR SELECT TO authenticated
+  USING (id = auth.uid() OR public.is_admin());
 
 -- Roles
 CREATE POLICY "Users can view own or all roles if admin"
@@ -539,8 +540,8 @@ CREATE POLICY "Admins can update daily snapshots"
   ON public.daily_snapshots FOR UPDATE TO authenticated
   USING (public.is_admin() AND public.event_is_writable(event_id));
 
-CREATE POLICY "Enable audit log creation"
-  ON public.admin_audit_log FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admins can create audit logs"
+  ON public.admin_audit_log FOR INSERT TO authenticated WITH CHECK (public.is_admin());
 
 -- ---------------------------------------------------------------------------
 -- Views

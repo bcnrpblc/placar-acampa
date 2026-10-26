@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Users, Shield, ShieldCheck, ShieldX } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, Users, Shield, ShieldCheck, ShieldX, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import type { User, Session } from '@supabase/supabase-js';
@@ -26,6 +28,9 @@ const RoleManager = () => {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteAdmin, setInviteAdmin] = useState(true);
+  const [inviting, setInviting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -62,7 +67,7 @@ const RoleManager = () => {
 
   const checkAdminStatus = async (userId: string) => {
     try {
-      const { data, error } = await supabase.rpc('is_admin');
+      const { data, error } = await supabase.rpc('is_superadmin');
       
       if (error) {
         console.error('Error checking admin status:', error);
@@ -125,6 +130,33 @@ const RoleManager = () => {
       });
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const inviteUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-user', {
+        body: { email: inviteEmail.trim(), admin: inviteAdmin, redirectTo: `${window.location.origin}/auth` },
+      });
+      if (error) {
+        // non-2xx: the function's message is in the response body
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        throw new Error(body?.error ?? 'Falha ao enviar o convite');
+      }
+      if (!data?.ok) throw new Error(data?.error ?? 'Falha ao enviar o convite');
+      toast({ title: "Convite enviado", description: inviteEmail.trim() });
+      setInviteEmail('');
+      fetchUsers();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Falha ao enviar o convite",
+      });
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -201,7 +233,7 @@ const RoleManager = () => {
               Acesso Negado
             </CardTitle>
             <p className="text-muted-foreground">
-              É necessário ser administrador para gerenciar papéis
+              Somente o superadmin pode gerenciar usuários e papéis
             </p>
           </CardHeader>
           <CardContent>
@@ -232,6 +264,44 @@ const RoleManager = () => {
             Voltar ao Painel Admin
           </Button>
           
+          <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20 mb-6">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-camp-cyan/10">
+                  <UserPlus className="w-6 h-6 text-camp-cyan" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-bold">Convidar usuário</CardTitle>
+                  <p className="text-muted-foreground text-sm">
+                    A pessoa recebe um e-mail e define a própria senha
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={inviteUser} className="space-y-3">
+                <Input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="email@exemplo.com"
+                  required
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={inviteAdmin} onCheckedChange={(v) => setInviteAdmin(v === true)} />
+                  Conceder acesso de administrador
+                </label>
+                <Button
+                  type="submit"
+                  disabled={inviting}
+                  className="bg-camp-cyan text-camp-dark hover:bg-camp-cyan/90"
+                >
+                  {inviting ? 'Enviando...' : 'Enviar convite'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
           <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
             <CardHeader>
               <div className="flex items-center gap-3">
