@@ -11,6 +11,7 @@ import { slugify } from "@/lib/slug";
 import { DEFAULT_THEME, type EventTheme } from "@/lib/theme";
 import { ThemePicker } from "@/components/ThemePicker";
 import { ArrowLeft, Plus, Settings } from "lucide-react";
+import { useIsSuperadmin } from "@/lib/useIsSuperadmin";
 
 type EventRow = Tables<"events">;
 
@@ -22,6 +23,7 @@ const AdminEvents = () => {
   const [scoringMode, setScoringMode] = useState<EventRow["scoring_mode"]>("team");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isSuperadmin = useIsSuperadmin();
 
   const load = async () => {
     const { data } = await supabase
@@ -64,10 +66,12 @@ const AdminEvents = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate("/admin/roles")}>
-            <Settings className="w-4 h-4 mr-2" />
-            Gerenciar Papéis
-          </Button>
+          {isSuperadmin && (
+            <Button variant="outline" size="sm" onClick={() => navigate("/admin/roles")}>
+              <Settings className="w-4 h-4 mr-2" />
+              Gerenciar Papéis
+            </Button>
+          )}
         </div>
 
         <Card className="bg-card/50 backdrop-blur-sm">

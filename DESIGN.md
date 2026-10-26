@@ -49,3 +49,5 @@
 | 2026-10-14 | Initial design system for the TV scoreboard | /design-consultation: glow around the leader bled into neighbouring cards and header was not separated from scores |
 | 2026-10-14 | Colors come from a per-event theme chosen by the admin at creation | User wants each event to have its own look; keeps score structure separate from presentation |
 | 2026-10-14 | Motion: "broadcast + moments" | User choice; calm baseline with feedback only when points arrive or the lead changes |
+| 2026-10-14 | Theme tokens extended (panel, muted, accent2, confetti, font, background image, optional logo); reveal pages follow the event theme | Event design should carry over to the scoreboard and reveals; structure and scoreboard behaviour stay fixed, only tokens change |
+| 2026-10-14 | Day/game reveals use a shorter sequence than the final; top 3 step only with 5+ teams | Less hype for routine reveals; a podium of 3 makes no sense with 2-4 teams |

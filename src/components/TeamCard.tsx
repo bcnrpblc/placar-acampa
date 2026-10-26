@@ -66,7 +66,7 @@ export const TeamCard = ({ team, rank, isLeader, previousPoints, highlightNew }:
       style={{
         containerType: "size",
         borderRadius: "2cqmin",
-        background: "color-mix(in srgb, var(--sb-text) 6%, var(--sb-bg))",
+        background: "var(--sb-panel)",
         border: "1px solid color-mix(in srgb, var(--sb-text) 16%, var(--sb-bg))",
         color: "var(--sb-text)",
       }}

@@ -12,7 +12,8 @@ import type { User, Session } from '@supabase/supabase-js';
 const Auth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLogin, setIsLogin] = useState(true);
+  // Invite / recovery links arrive with the session in the URL hash; the user must pick a password first
+  const [settingPassword] = useState(() => /type=(invite|recovery)/.test(window.location.hash));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,7 +29,7 @@ const Auth = () => {
         setUser(session?.user ?? null);
         
         // Redirect authenticated users to admin
-        if (session?.user) {
+        if (session?.user && !settingPassword) {
           navigate('/admin');
         }
       }
@@ -39,18 +40,18 @@ const Auth = () => {
       setSession(session);
       setUser(session?.user ?? null);
       
-      if (session?.user) {
+      if (session?.user && !settingPassword) {
         navigate('/admin');
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, settingPassword]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
+    if ((!settingPassword && !email) || !password) {
       toast({
         title: "Dados inválidos",
         description: "Preencha todos os campos",
@@ -62,7 +63,12 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
+      if (settingPassword) {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        toast({ title: "Senha definida", description: "Bem-vindo!" });
+        navigate('/admin');
+      } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -74,27 +80,10 @@ const Auth = () => {
           title: "Login realizado",
           description: "Bem-vindo de volta!",
         });
-      } else {
-        const redirectUrl = `${window.location.origin}/`;
-        
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: redirectUrl
-          }
-        });
-
-        if (error) throw error;
-
-        toast({
-          title: "Conta criada",
-          description: "Verifique seu e-mail para confirmar a conta.",
-        });
       }
     } catch (error: any) {
       toast({
-        title: isLogin ? "Falha no login" : "Falha no cadastro",
+        title: settingPassword ? "Falha ao definir a senha" : "Falha no login",
         description: error.message,
         variant: "destructive"
       });
@@ -114,7 +103,7 @@ const Auth = () => {
     }
   };
 
-  if (user) {
+  if (user && !settingPassword) {
     return (
       <div className="min-h-screen bg-gradient-dark flex items-center justify-center p-4">
         <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
@@ -174,28 +163,30 @@ const Auth = () => {
               <Lock className="w-8 h-8 text-camp-cyan" />
             </div>
             <CardTitle className="text-2xl font-bold bg-gradient-camp bg-clip-text text-transparent">
-              {isLogin ? "Login do Admin" : "Criar conta"}
+              {settingPassword ? "Definir senha" : "Login do Admin"}
             </CardTitle>
             <p className="text-muted-foreground">
-              {isLogin ? "Entre para acessar o painel de administração" : "Crie uma conta de administrador"}
+              {settingPassword ? "Escolha uma senha para acessar o painel" : "Entre para acessar o painel de administração"}
             </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Digite seu e-mail..."
-                  required
-                />
-              </div>
+              {!settingPassword && (
+                <div>
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Digite seu e-mail..."
+                    required
+                  />
+                </div>
+              )}
               
               <div>
-                <Label htmlFor="password">Senha</Label>
+                <Label htmlFor="password">{settingPassword ? "Nova senha" : "Senha"}</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -223,19 +214,8 @@ const Auth = () => {
                 disabled={loading}
                 className="w-full bg-camp-cyan text-camp-dark hover:bg-camp-cyan/90"
               >
-                {loading ? "Carregando..." : (isLogin ? "Entrar" : "Cadastrar")}
+                {loading ? "Carregando..." : (settingPassword ? "Salvar senha" : "Entrar")}
               </Button>
-
-              <div className="text-center">
-                <Button
-                  type="button"
-                  variant="link"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="text-camp-cyan"
-                >
-                  {isLogin ? "Precisa de uma conta? Cadastre-se" : "Já tem uma conta? Entrar"}
-                </Button>
-              </div>
             </form>
 
             <div className="text-center text-xs text-muted-foreground mt-4">

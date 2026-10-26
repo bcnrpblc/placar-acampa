@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Undo2, Trophy, Users, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@supabase/supabase-js";
+import { useIsSuperadmin } from "@/lib/useIsSuperadmin";
 
 interface Team {
   id: string;
@@ -62,6 +63,7 @@ export const AdminPanel = ({
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const readonly = eventStatus === "ended";
+  const isSuperadmin = useIsSuperadmin();
   
   // Form state
   const [assignmentMode, setAssignmentMode] = useState<'individual' | 'team'>(scoringMode === 'team' ? 'team' : 'individual');
@@ -672,15 +674,17 @@ export const AdminPanel = ({
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar
             </Button>
-            <Button
-              onClick={() => (window.location.href = "/admin/roles")}
-              variant="outline"
-              size="sm"
-              className="bg-camp-cyan/10 text-camp-cyan border-camp-cyan/30 hover:bg-camp-cyan/20"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Gerenciar Papéis
-            </Button>
+            {isSuperadmin && (
+              <Button
+                onClick={() => (window.location.href = "/admin/roles")}
+                variant="outline"
+                size="sm"
+                className="bg-camp-cyan/10 text-camp-cyan border-camp-cyan/30 hover:bg-camp-cyan/20"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Gerenciar Papéis
+              </Button>
+            )}
           </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-camp bg-clip-text text-transparent">

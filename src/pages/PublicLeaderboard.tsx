@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import type * as React from "react";
 import { useEventId } from "@/lib/useEventId";
-import { parseTheme } from "@/lib/theme";
+import { parseTheme, themeStyle } from "@/lib/theme";
 
 interface TeamWithAggregate extends Team {
   rank?: number;
@@ -176,7 +176,7 @@ const PublicLeaderboard = () => {
     fontFamily: "Barlow, sans-serif",
     color: "var(--sb-text)",
     borderColor: "var(--sb-accent)",
-    background: "color-mix(in srgb, var(--sb-text) 6%, var(--sb-bg))",
+    background: "var(--sb-panel)",
   } as const;
 
   return (
@@ -185,12 +185,8 @@ const PublicLeaderboard = () => {
       style={{
         padding: "4vmin",
         gap: "2.5vmin",
-        fontFamily: "'Barlow Condensed', 'Barlow', sans-serif",
-        background: theme.background,
-        color: theme.text,
-        "--sb-bg": theme.background,
-        "--sb-text": theme.text,
-        "--sb-accent": theme.accent,
+        fontFamily: "var(--sb-font)",
+        ...themeStyle(theme),
       } as React.CSSProperties}
     >
       <Button
@@ -205,6 +201,9 @@ const PublicLeaderboard = () => {
 
       {/* Header band: event name, optional subtitle (title grows when there is none) */}
       <div className="text-center shrink-0">
+        {theme.useLogo && theme.logo && (
+          <img src={theme.logo} alt="" className="mx-auto object-contain" style={{ height: "9vmin", marginBottom: "1vmin" }} />
+        )}
         <h1
           className="font-extrabold uppercase leading-none"
           style={{ fontSize: subtitle ? "8vmin" : "11vmin", color: "var(--sb-accent)", letterSpacing: "0.02em" }}

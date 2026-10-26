@@ -11,13 +11,21 @@ import { Trophy, Star, Sparkles, Crown, ArrowLeft, TrendingUp, Calendar } from '
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 import * as React from "react";
+import { RevealThemeProvider, useRevealTheme } from '@/components/RevealThemeProvider';
+import { SHORT_REVEAL_TIMING as T, TOP3_MIN_TEAMS } from '@/lib/revealTiming';
+import { RevealWaiting } from '@/components/RevealWaiting';
+import { RevealClosing } from '@/components/RevealClosing';
+import { RevealWinner } from '@/components/RevealWinner';
+import { RevealHeartbeat } from '@/components/RevealHeartbeat';
+import { parseTheme, confettiColors } from '@/lib/theme';
 
 const DayReveal = () => {
   const [revealState, setRevealState] = useState<'waiting' | 'locking' | 'revealing' | 'complete'>('waiting');
   const [selectedDay] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [snapshot, setSnapshot] = useState<any>(null);
   const [currentPhase, setCurrentPhase] = useState(1);
-  const { eventId } = useEventId();
+  const snapshotRef = React.useRef<any>(null);
+  const { eventId, event } = useEventId();
 
   const handleStartReveal = async () => {
     setRevealState('locking');
@@ -33,7 +41,8 @@ const DayReveal = () => {
             id,
             name,
             color,
-            avatar_url
+            avatar_url,
+            photo_url
           )
         `)
         .eq('event_id', eventId!)
@@ -47,11 +56,13 @@ const DayReveal = () => {
             name: item.teams.name,
             color: item.teams.color,
             avatar_url: item.teams.avatar_url,
+            photo_url: item.teams.photo_url ?? null,
             total_points: item.total_points,
             rank: index + 1
           }))
         };
         
+        snapshotRef.current = formattedSnapshot;
         setSnapshot(formattedSnapshot);
         
         // Wait 2 seconds then start reveal
@@ -66,31 +77,33 @@ const DayReveal = () => {
   };
 
   const runRevealSequence = async () => {
-    // Phase 1: Time-based counting (10s - matching your slot machine)
+    // Phase 1: mystery count-up
     setCurrentPhase(1);
-    await wait(10000);  // Changed to match your 10s slot machine
-    
-    // HEARTBEAT TRANSITION (4.5 seconds)
-    setCurrentPhase(1.5); // New intermediate phase!
-    await wait(4500); // Duration of heartbeat (3 beats × 1.5s)
-    
-    // Phase 2: Direct Top 3 spotlight (5s)
-    setCurrentPhase(2);
-    await wait(5000);
-    
-    // Phase 3: Extended winner celebration (60s)
+    await wait(T.COUNT_UP);
+
+    // Heartbeat before the reveal
+    setCurrentPhase(1.5);
+    await wait(T.HEARTBEAT);
+
+    // Phase 2: top 3 spotlight, only with enough teams
+    if ((snapshotRef.current?.teams.length ?? 0) >= TOP3_MIN_TEAMS) {
+      setCurrentPhase(2);
+      await wait(T.TOP3);
+    }
+
+    // Phase 3: winner celebration
     setCurrentPhase(3);
     triggerConfetti();
-    await wait(60000);
+    await wait(T.WINNER);
     
     setRevealState('complete');
   };
 
   const triggerConfetti = () => {
-    const duration = 60000; // 60 seconds
+    const duration = T.WINNER;
     const end = Date.now() + duration;
 
-    const colors = ['#23dbf3', '#ee1147', '#ffffff'];
+    const colors = confettiColors(parseTheme(event?.theme));
 
     (function frame() {
       confetti({
@@ -119,7 +132,8 @@ const DayReveal = () => {
   useRevealScreen(eventId, 'day', () => handleStartReveal());
 
   return (
-    <div className="min-h-screen bg-gradient-dark relative overflow-hidden">
+    <RevealThemeProvider event={event} kind="day">
+    <div className="min-h-screen bg-[color:var(--sb-bg)] relative overflow-hidden">
 
       {/* Animated Background */}
       <div className="absolute inset-0">
@@ -153,6 +167,7 @@ const DayReveal = () => {
         )}
       </AnimatePresence>
     </div>
+    </RevealThemeProvider>
   );
 };
 
@@ -162,59 +177,30 @@ const RevealControlPanel = ({ selectedDay, onStartReveal }: any) => {
     const today = new Date();
     const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    
-    const dayName = dayNames[today.getDay()];
     const day = today.getDate().toString().padStart(2, '0');
-    const month = monthNames[today.getMonth()];
-    
-    return `${dayName} - ${day} ${month}`;
+    return `${dayNames[today.getDay()]} - ${day} ${monthNames[today.getMonth()]}`;
   };
   return (
-    <div className="min-h-screen bg-gradient-glow">
-      <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="w-full max-w-4x2"
+    <RevealWaiting
+      status="Aguardando o início da apuração..."
+      extra={
+        <div
+          className="flex items-center rounded-xl border border-[color:var(--sb-muted)] text-[color:var(--sb-text)]"
+          style={{ gap: "2vmin", padding: "1.6vmin 3vmin", fontSize: "3.4vmin" }}
         >
-          <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
-            <CardHeader className="text-center">
-              <CardTitle className="text-6xl md:text-9xl font-black bg-gradient-camp bg-clip-text text-transparent mb-4">
-                APURAÇÃO DO DIA
-              </CardTitle>
-              <p className="text-xl md:text-2x1 text-muted-foreground mb-2">Acampamento 25+</p>
-              <div className="text-xl text-muted-foreground mt-2">
-                "Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <label className="text-foreground text-lg mb-3 block font-semibold">
-                  Dia Selecionado
-                </label>
-                <div className="w-full bg-card/50 border border-border text-foreground text-lg py-3 px-3 rounded-md flex items-center gap-3">
-                  <Calendar className="w-10 h-5 text-camp-cyan" />
-                  <span>{getTodayFormatted()}</span>
-                </div>
-              </div>
-
-              <p className="text-center text-2xl md:text-4xl font-bold text-camp-cyan animate-pulse">
-                Aguardando o início da apuração...
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    </div>
+          <Calendar style={{ width: "4vmin", height: "4vmin" }} className="text-[color:var(--sb-accent)]" />
+          <span>{getTodayFormatted()}</span>
+        </div>
+      }
+    />
   );
 };
 
 // Locking Animation Component
 const LockingAnimation = () => {
   return (
-    <div className="min-h-screen bg-gradient-glow">
-      <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
+    <div className="min-h-screen bg-[color:var(--sb-bg)]">
+      <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -224,12 +210,12 @@ const LockingAnimation = () => {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="w-32 h-32 mx-auto mb-8 rounded-full border-8 border-camp-cyan border-t-camp-pink shadow-camp"
+            className="w-32 h-32 mx-auto mb-8 rounded-full border-8 border-[color:var(--sb-accent)] border-t-[color:var(--sb-accent2)] shadow-camp"
           ></motion.div>
-          <h2 className="text-4xl font-black text-foreground mb-4">
+          <h2 className="text-4xl font-black text-[color:var(--sb-text)] mb-4">
             SOMANDO OS PONTOS...
           </h2>
-          <p className="text-muted-foreground text-xl">
+          <p className="text-[color:var(--sb-muted)] text-xl">
             Preparando o resultado final...
           </p>
         </motion.div>
@@ -239,104 +225,13 @@ const LockingAnimation = () => {
 };
 
 // Heartbeat Transition Component - 
-const HeartbeatTransition = () => {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/95 flex items-center justify-center z-50"
-    >
-      {/* Multiple pulsing layers for depth */}
-      <div className="relative">
-        {/* Outer pulse ring */}
-        <motion.div
-          animate={{
-            scale: [1, 1.5, 1],
-            opacity: [0.3, 0, 0.3],
-          }}
-          transition={{
-            duration: 1.5,
-            repeat: 10, // 3 total beats
-            ease: "easeInOut",
-          }}
-          className="absolute inset-0 w-64 h-64 -translate-x-32 -translate-y-32 
-                     rounded-full bg-camp-cyan/30 blur-xl"
-        />
-        
-        {/* Middle pulse ring */}
-        <motion.div
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.5, 0.1, 0.5],
-          }}
-          transition={{
-            duration: 5,
-            repeat: 2,
-            ease: "easeInOut",
-            delay: 0.5,
-          }}
-          className="absolute inset-0 w-48 h-48 -translate-x-24 -translate-y-24 
-                     rounded-full bg-camp-cyan/50 blur-lg"
-        />
-        
-        {/* Core heartbeat */}
-        <motion.div
-          animate={{
-            scale: [3, 3.2, 0.9, 3],
-            boxShadow: [
-              "0 0 0 0 rgba(35, 219, 243, 0.7)",
-              "0 0 0 40px rgba(35, 219, 243, 0)",
-              "0 0 0 0 rgba(35, 219, 243, 0)",
-              "0 0 0 0 rgba(35, 219, 243, 0.7)",
-            ],
-          }}
-          transition={{
-            duration: 2,
-            repeat: 5,
-            ease: "easeInOut",
-          }}
-          className="w-32 h-32 rounded-full bg-gradient-to-br from-camp-cyan to-camp-pink 
-                     shadow-2xl shadow-camp-cyan/50"
-        />
-        
-        {/* Center countdown */}
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 0.95, 1],
-          }}
-          transition={{
-            duration: 10,
-            repeat: 10,
-            ease: "easeInOut",
-          }}
-          className="absolute inset-0 flex items-center justify-center"
-        >
-          <span className="text-6xl font-black text-white/90"></span>
-
-        </motion.div>
-      </div>
-      
-      {/* Text below */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="absolute bottom-32 text-center"
-      >
-        <p className="text-camp-cyan text-2xl font-bold animate-pulse">
-          Preparando o Top 3...
-        </p>
-      </motion.div>
-    </motion.div>
-  );
-};
+const HeartbeatTransition = () => <RevealHeartbeat label="Preparando o resultado..." />;
 
 // Reveal Spectacle Component
 const RevealSpectacle = ({ snapshot, phase }: any) => {
   return (
-    <div className="min-h-screen bg-gradient-dark">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-[color:var(--sb-bg)]">
+      <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -347,7 +242,8 @@ const RevealSpectacle = ({ snapshot, phase }: any) => {
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4"
+              className="flex flex-wrap justify-center items-stretch"
+              style={{ gap: "3vmin", maxWidth: "94vw" }}
             >
               {(() => {
                 // Phase 1: Show teams in randomized order to hide rankings
@@ -413,12 +309,13 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
       initial={{ y: 50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay, duration: 0.6 }}
+      style={{ width: "min(30vmin, 17vw)", minWidth: "200px", containerType: "inline-size" }}
     >
       <Card 
         className={`
           relative overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-elevation
           ${highlighted ? 'animate-leader-glow' : ''}
-          bg-gradient-to-br from-card via-card to-card/50
+          bg-[color:var(--sb-panel)]
           border-2 border-border hover:border-${teamColorClass}
         `}
         style={{
@@ -438,22 +335,22 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
         {/* Special Icons for Top 3 - Hidden in Phase 1 */}
         {!hideRanking && rank <= 3 && (
           <div className="absolute top-4 left-4">
-            {rank === 1 && <Crown className="w-8 h-8 text-team-yellow animate-bounce" />}
-            {rank === 2 && <Trophy className="w-8 h-8 text-muted-foreground animate-bounce" />}
-            {rank === 3 && <Star className="w-8 h-8 text-team-orange animate-bounce" />}
+            {rank === 1 && <Crown className="w-8 h-8 text-[color:var(--sb-accent2)] animate-bounce" />}
+            {rank === 2 && <Trophy className="w-8 h-8 text-[color:var(--sb-muted)] animate-bounce" />}
+            {rank === 3 && <Star className="w-8 h-8 text-[color:var(--sb-accent2)] animate-bounce" />}
           </div>
         )}
 
         <CardHeader className="pb-2">
           <div className="flex items-center gap-4">
-            <Avatar className="w-16 h-16 border-2 border-current" style={{ borderColor: team.color }}>
+            <Avatar className="border-2" style={{ borderColor: team.color, width: "22cqw", height: "22cqw" }}>
               <AvatarImage src={team.avatar_url} alt={`${team.name} team avatar`} />
               <AvatarFallback className={`bg-${teamColorClass} text-white font-bold text-xl`}>
                 {team.name.charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-1" style={{ color: team.color }}>
+              <h2 className="font-bold mb-1" style={{ color: team.color, fontSize: "9cqw", lineHeight: 1.1 }}>
                 {team.name}
               </h2>
             </div>
@@ -463,8 +360,8 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
         <CardContent>
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <TrendingUp className={`w-6 h-6 text-${teamColorClass}`} />
-              <span className="text-lg font-semibold text-muted-foreground">Total de Pontos</span>
+              <TrendingUp style={{ width: "6cqw", height: "6cqw", color: "var(--sb-accent)" }} />
+              <span className="font-semibold text-[color:var(--sb-muted)]" style={{ fontSize: "6cqw" }}>Total de Pontos</span>
             </div>
             <motion.div 
               initial={{ scale: 0 }}
@@ -474,11 +371,11 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
             >
               {/* Slot machine container */}
               <div 
-                className={`text-6xl font-black ${phase === 1 ? 'font-mono' : ''}`}
-                style={{ color: team.color }}
+                className="font-black"
+                style={{ color: team.color, fontSize: "22cqw", lineHeight: 1.1, fontVariantNumeric: "tabular-nums" }}
               >
                 {phase === 1 && (
-                  <div className="text-sm text-muted-foreground mb-2">
+                  <div className="text-[color:var(--sb-muted)] mb-2" style={{ fontSize: "4.5cqw", letterSpacing: "0.1em" }}>
                     CALCULANDO...
                   </div>
                 )}
@@ -488,7 +385,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
                   hideActualScore={phase === 1}
                 />
                 {phase === 1 && (
-                  <div className="text-lg mt-2">
+                  <div className="mt-2" style={{ fontSize: "6cqw" }}>
                     pontos
                   </div>
                 )}
@@ -503,6 +400,7 @@ const TeamRevealCard = ({ team, rank, highlighted, delay, hideRanking = false, p
 
 // Top 3 Spotlight Component - Fixed centering and scaling
 const Top3Spotlight = ({ teams }: any) => {
+  const { texts, fill } = useRevealTheme();
   const getTeamColorClass = (teamName: string) => {
     const name = teamName?.toLowerCase() || '';
     const colorMap: Record<string, string> = {
@@ -524,7 +422,7 @@ const Top3Spotlight = ({ teams }: any) => {
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="fixed inset-0 bg-gradient-dark/90 backdrop-blur-sm z-20 overflow-hidden"
+      className="fixed inset-0 bg-[color:var(--sb-bg)] backdrop-blur-sm z-20 overflow-hidden"
     >
       {/* True centering container that accounts for sidebar */}
       <div className="absolute inset-0 flex items-center justify-center">
@@ -532,9 +430,9 @@ const Top3Spotlight = ({ teams }: any) => {
           <motion.h2
             initial={{ y: -50 }}
             animate={{ y: 0 }}
-            className="text-4xl md:text-6xl font-black bg-gradient-camp bg-clip-text text-transparent mb-16 md:mb-20 text-center whitespace-nowrap"
+            className="text-4xl md:text-6xl font-black text-[color:var(--sb-accent)] mb-16 md:mb-20 text-center whitespace-nowrap"
           >
-            TOP 3 DO DIA! 🏆
+            {fill(texts.top3Title)}
           </motion.h2>
           
           <div className="flex justify-center items-end gap-4 md:gap-8">
@@ -561,11 +459,11 @@ const Top3Spotlight = ({ teams }: any) => {
                   </AvatarFallback>
                 </Avatar>
               </motion.div>
-              <div className="text-2xl md:text-3xl font-black text-muted-foreground mb-4">2</div>
-              <h3 className="text-xl md:text-2xl font-bold text-foreground mb-2" style={{ color: teams[1]?.color }}>
+              <div className="text-2xl md:text-3xl font-black text-[color:var(--sb-muted)] mb-4">2</div>
+              <h3 className="text-xl md:text-2xl font-bold text-[color:var(--sb-text)] mb-2" style={{ color: teams[1]?.color }}>
                 {teams[1]?.name}
               </h3>
-              <p className="text-lg md:text-xl text-muted-foreground">{teams[1]?.total_points} pts</p>
+              <p className="text-lg md:text-xl text-[color:var(--sb-muted)]">{teams[1]?.total_points} pts</p>
             </motion.div>
 
             {/* 1st Place */}
@@ -591,12 +489,12 @@ const Top3Spotlight = ({ teams }: any) => {
                   </AvatarFallback>
                 </Avatar>
               </motion.div>
-              <div className="text-3xl md:text-4xl font-black text-team-yellow mb-2">1</div>
-              <Crown className="w-10 md:w-12 h-10 md:h-12 text-team-yellow mx-auto mb-2 animate-bounce" />
-              <h3 className="text-2xl md:text-3xl font-black text-foreground mb-2" style={{ color: teams[0]?.color }}>
+              <div className="text-3xl md:text-4xl font-black text-[color:var(--sb-accent2)] mb-2">1</div>
+              <Crown className="w-10 md:w-12 h-10 md:h-12 text-[color:var(--sb-accent2)] mx-auto mb-2 animate-bounce" />
+              <h3 className="text-2xl md:text-3xl font-black text-[color:var(--sb-text)] mb-2" style={{ color: teams[0]?.color }}>
                 {teams[0]?.name}
               </h3>
-              <p className="text-xl md:text-2xl text-team-yellow font-bold">{teams[0]?.total_points} pts</p>
+              <p className="text-xl md:text-2xl text-[color:var(--sb-accent2)] font-bold">{teams[0]?.total_points} pts</p>
             </motion.div>
 
             {/* 3rd Place */}
@@ -622,11 +520,11 @@ const Top3Spotlight = ({ teams }: any) => {
                   </AvatarFallback>
                 </Avatar>
               </motion.div>
-              <div className="text-xl md:text-2xl font-black text-team-orange mb-4">3</div>
-              <h3 className="text-lg md:text-xl font-bold text-foreground mb-2" style={{ color: teams[2]?.color }}>
+              <div className="text-xl md:text-2xl font-black text-[color:var(--sb-accent2)] mb-4">3</div>
+              <h3 className="text-lg md:text-xl font-bold text-[color:var(--sb-text)] mb-2" style={{ color: teams[2]?.color }}>
                 {teams[2]?.name}
               </h3>
-              <p className="text-base md:text-lg text-muted-foreground">{teams[2]?.total_points} pts</p>
+              <p className="text-base md:text-lg text-[color:var(--sb-muted)]">{teams[2]?.total_points} pts</p>
             </motion.div>
           </div>
         </div>
@@ -637,89 +535,22 @@ const Top3Spotlight = ({ teams }: any) => {
 
 // Winner Celebration Component
 const WinnerCelebration = ({ winner }: any) => {
-  return (
-    <motion.div
-      initial={{ scale: 0, rotate: -180 }}
-      animate={{ scale: 1, rotate: 0 }}
-      transition={{ type: "spring", duration: 1 }}
-      className="fixed inset-0 bg-gradient-dark/95 backdrop-blur flex items-center justify-center z-30"
-    >
-      <div className="text-center">
-        <motion.h1
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="text-8xl font-black bg-gradient-camp bg-clip-text text-transparent mb-8 drop-shadow-2xl"
-        >
-          🏆 A EQUIPE QUE MAIS PONTUOU HOJE FOI 🏆
-        </motion.h1>
-        
-        <motion.div
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Card 
-            className="bg-card/95 backdrop-blur-sm rounded-3xl p-12 shadow-elevation max-w-2xl mx-auto border-4"
-            style={{ borderColor: winner.color }}
-          >
-            <Avatar className="w-32 h-32 mx-auto mb-6 border-4 shadow-2xl" style={{ borderColor: winner.color }}>
-              <AvatarImage src={winner.avatar_url} alt={`${winner.name} team avatar`} />
-              <AvatarFallback 
-                className="text-white text-6xl font-black"
-                style={{ backgroundColor: winner.color }}
-              >
-                {winner.name.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            
-            <h2 className="text-6xl font-black mb-6" style={{ color: winner.color }}>
-              {winner.name}
-            </h2>
-            <div className="text-5xl font-bold text-foreground mb-4">
-              {winner.total_points} pontos
-            </div>
-            
-            <motion.div
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-            >
-              <Crown className="w-16 h-16 text-team-yellow mx-auto" />
-            </motion.div>
-          </Card>
-        </motion.div>
-      </div>
-    </motion.div>
-  );
+  const { texts, fill } = useRevealTheme();
+  return <RevealWinner title={fill(texts.winnerTitle, { team: winner.name })} winner={winner} />;
 };
 
 // Reveal Complete Component
 const RevealComplete = ({ snapshot }: any) => {
+  const { texts, fill } = useRevealTheme();
+  const winner = snapshot.teams[0];
+  const vars = { team: winner.name };
   return (
-    <div className="min-h-screen bg-gradient-glow">
-      <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center w-full max-w-2xl"
-        >
-          <Card className="bg-card/50 backdrop-blur-sm border-camp-cyan/20">
-            <CardContent className="text-center space-y-8 p-8">
-              <h1 className="text-6xl font-black bg-gradient-camp bg-clip-text text-transparent mb-8">
-                Apuração Completa! ✨
-              </h1>
-              
-              <div className="space-y-4">
-                
-                <div className="text-muted-foreground">
-                  <p>Parabéns a equipe {snapshot.teams[0].name}!</p>
-                  <p className="text-sm mt-2">"Sede, pois, imitadores de Deus, como filhos amados" - Efésios 5:1</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    </div>
+    <RevealClosing
+      title={fill(texts.completeTitle, vars)}
+      subtitle={fill(texts.completeSubtitle, vars)}
+      teamColor={winner.color}
+      detail={`${winner.total_points.toLocaleString('pt-BR')} pontos`}
+    />
   );
 };
 
@@ -747,9 +578,9 @@ const ParticleField = ({ active }: { active: boolean }) => {
             repeat: Infinity,
             delay: Math.random() * 2
           }}
-          className="absolute w-2 h-2 bg-camp-cyan rounded-full"
+          className="absolute w-2 h-2 bg-[color:var(--sb-accent)] rounded-full"
           style={{
-            backgroundColor: Math.random() > 0.5 ? '#23dbf3' : '#ee1147'
+            backgroundColor: Math.random() > 0.5 ? 'var(--sb-accent)' : 'var(--sb-accent2)'
           }}
         />
       ))}
@@ -765,7 +596,7 @@ const SpotlightEffect = ({ active }: { active: boolean }) => {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 0.3 }}
-      className="absolute inset-0 bg-gradient-radial from-transparent via-camp-cyan/20 to-camp-pink/20"
+      className="absolute inset-0 bg-[radial-gradient(circle,transparent,color-mix(in_srgb,var(--sb-accent)_20%,transparent))]"
     />
   );
 };

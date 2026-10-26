@@ -46,7 +46,8 @@ CREATE TABLE public.events (
   starts_at timestamptz,
   ended_at timestamptz,
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  theme jsonb, -- reserved for future theming / AI themes; unused in Phase 1
+  theme jsonb, -- per-event look: colors, font, logo, background (see src/lib/theme.ts)
+  reveal_texts jsonb, -- per-event reveal texts by kind: day | game | final (see src/lib/revealTexts.ts)
   final_snapshot jsonb, -- written when event is ended
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -61,6 +62,7 @@ CREATE TABLE public.teams (
   name text NOT NULL,
   color varchar(7) NOT NULL,
   avatar_url text,
+  photo_url text, -- optional photo for the reveal pages
   created_at timestamptz DEFAULT now(),
   UNIQUE (event_id, name)
 );
@@ -265,7 +267,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT public.is_admin() THEN
+  IF NOT public.is_superadmin() THEN
     RETURN false;
   END IF;
 
@@ -284,7 +286,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT public.is_admin() THEN
+  IF NOT public.is_superadmin() THEN
     RETURN false;
   END IF;
 
@@ -435,10 +437,11 @@ CREATE POLICY "Team aggregates are viewable by everyone"
   ON public.team_aggregates FOR SELECT USING (true);
 CREATE POLICY "Daily snapshots are viewable by everyone"
   ON public.daily_snapshots FOR SELECT USING (true);
-CREATE POLICY "Admin audit logs viewable by everyone"
-  ON public.admin_audit_log FOR SELECT USING (true);
-CREATE POLICY "Profiles are viewable by everyone"
-  ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Admin audit logs viewable by admins"
+  ON public.admin_audit_log FOR SELECT TO authenticated USING (public.is_admin());
+CREATE POLICY "Profiles viewable by self or admins"
+  ON public.profiles FOR SELECT TO authenticated
+  USING (id = auth.uid() OR public.is_admin());
 
 -- Roles
 CREATE POLICY "Users can view own or all roles if admin"
@@ -537,8 +540,8 @@ CREATE POLICY "Admins can update daily snapshots"
   ON public.daily_snapshots FOR UPDATE TO authenticated
   USING (public.is_admin() AND public.event_is_writable(event_id));
 
-CREATE POLICY "Enable audit log creation"
-  ON public.admin_audit_log FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admins can create audit logs"
+  ON public.admin_audit_log FOR INSERT TO authenticated WITH CHECK (public.is_admin());
 
 -- ---------------------------------------------------------------------------
 -- Views
@@ -621,3 +624,34 @@ CREATE POLICY "Admins delete team mascots"
   USING (bucket_id = 'team-mascots' AND public.is_admin());
 
 -- No seed data — admins create events, teams, and games in the UI.
+
+-- ---------------------------------------------------------------------------
+-- Storage: event assets (design image, logo, background)
+-- ---------------------------------------------------------------------------
+-- Public bucket for event design images, logos and background images.
+-- Paths: <event_id>/design-<ts>.ext, <event_id>/logo-<ts>.ext, <event_id>/bg-<ts>.ext
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'event-assets',
+  'event-assets',
+  true,
+  8388608,
+  ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain']
+)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Public read event assets"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'event-assets');
+
+CREATE POLICY "Admins upload event assets"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'event-assets' AND public.is_admin());
+
+CREATE POLICY "Admins update event assets"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'event-assets' AND public.is_admin());
+
+CREATE POLICY "Admins delete event assets"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'event-assets' AND public.is_admin());
