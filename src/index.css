@@ -12,6 +12,16 @@ All colors MUST be HSL.
 }
 .sb-flash { animation: sb-flash 1.2s ease-out forwards; }
 
+/* Leader glow: pulses inside the card in the team color */
+@keyframes sb-glow {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+.sb-glow { animation: sb-glow 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .sb-glow { animation: none; opacity: 0.7; }
+}
+
 @layer base {
   :root {
     /* Camp Clash Brand Colors */

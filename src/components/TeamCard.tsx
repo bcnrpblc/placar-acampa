@@ -22,7 +22,8 @@ interface TeamCardProps {
 /**
  * Scoreboard card. Colors come from the CSS variables --sb-bg / --sb-text set by the
  * page (event theme); the team color is the only other color. Sizes use cqmin so the
- * card scales to any grid cell (TV friendly). No outer glow: nothing leaves the card.
+ * card scales to any grid cell (TV friendly). The leader pulses in its team color, but the
+ * glow is drawn inside the card: nothing leaves it.
  */
 export const TeamCard = ({ team, rank, isLeader, previousPoints, highlightNew }: TeamCardProps) => {
   const [animatedPoints, setAnimatedPoints] = useState(previousPoints ?? team.total_points);
@@ -71,6 +72,17 @@ export const TeamCard = ({ team, rank, isLeader, previousPoints, highlightNew }:
         color: "var(--sb-text)",
       }}
     >
+      {isLeader && (
+        <div
+          className="sb-glow absolute inset-0 pointer-events-none"
+          style={{
+            borderRadius: "inherit",
+            boxShadow: `inset 0 0 9cqmin 1.5cqmin color-mix(in srgb, ${team.color} 70%, transparent)`,
+            background: `radial-gradient(ellipse at 50% 60%, color-mix(in srgb, ${team.color} 28%, transparent), transparent 70%)`,
+          }}
+        />
+      )}
+
       {/* Team color band; thicker for the leader */}
       <div style={{ height: isLeader ? "3.5cqmin" : "1.8cqmin", background: team.color }} />
 
@@ -104,7 +116,7 @@ export const TeamCard = ({ team, rank, isLeader, previousPoints, highlightNew }:
       </div>
 
       <div
-        className="h-full flex flex-col items-center justify-center text-center"
+        className="relative h-full flex flex-col items-center justify-center text-center"
         style={{ gap: "3cqmin", padding: "6cqmin", paddingTop: "10cqmin" }}
       >
         <Avatar style={{ width: "30cqmin", height: "30cqmin", border: `0.8cqmin solid ${team.color}` }}>

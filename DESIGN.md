@@ -41,7 +41,8 @@
 - **Approach:** minimal-functional + moments.
 - **Always:** score count-up on change, AO VIVO dot pulse.
 - **Moments:** 1.2 s color flash inside a card when it receives points; "NOVO LÍDER" tag for 6 s when the lead changes hands.
-- **Never:** continuous glow or pulsing cards.
+- **Leader glow (2026-10-26):** the leader's card pulses (2.4 s) with an inner glow in its team color. Drawn inside the card only, never outside. Static under `prefers-reduced-motion`.
+- **Never:** glow on any card other than the leader, or a glow that paints outside its card.
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -50,4 +51,5 @@
 | 2026-10-14 | Colors come from a per-event theme chosen by the admin at creation | User wants each event to have its own look; keeps score structure separate from presentation |
 | 2026-10-14 | Motion: "broadcast + moments" | User choice; calm baseline with feedback only when points arrive or the lead changes |
 | 2026-10-14 | Theme tokens extended (panel, muted, accent2, confetti, font, background image, optional logo); reveal pages follow the event theme | Event design should carry over to the scoreboard and reveals; structure and scoreboard behaviour stay fixed, only tokens change |
+| 2026-10-26 | Leader card gets a continuous inner glow in its team color | User request; supersedes "no continuous glow" for the leader only. Kept inside the card to avoid the neighbour bleed that removed the first glow |
 | 2026-10-14 | Day/game reveals use a shorter sequence than the final; top 3 step only with 5+ teams | Less hype for routine reveals; a podium of 3 makes no sense with 2-4 teams |
