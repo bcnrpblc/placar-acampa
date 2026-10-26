@@ -39,7 +39,7 @@ const Home = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-camp bg-clip-text text-transparent">
-              Placar Acampa
+              Placar
             </h1>
             <p className="text-muted-foreground">Escolha um evento para ver o placar</p>
           </div>
