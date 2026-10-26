@@ -29,7 +29,8 @@ interface Team {
 }
 
 interface RevealPhase {
-  type: 'countdown' | 'reveal' | 'pause' | 'climax' | 'top3' | 'winner_image' | 'celebration';
+  type: 'countdown' | 'reveal' | 'pause' | 'climax' | 'suspense' | 'top3' | 'winner_image' | 'celebration';
+  step?: number; // suspense page index
   position?: number; // Which position we're revealing (10, 9, 8, etc.)
   duration: number;
 }
@@ -49,6 +50,8 @@ const REVEAL_TIMING = {
   PRE_TOP3_PAUSE: 12000, // Before the top 3 (or the winner when there is no top 3): 12s
   
   // Final sequence timing
+  SUSPENSE_STEP: 5000,  // Each suspense page ("E o vencedor foi?", "foi...", "foi...") lasts 5s
+  SUSPENSE_HOLD: 10000, // The last "foi..." stays on screen this long after fading in, before the winner
   TOP3_DISPLAY: 5000,   // Show top 3: 5s
   WINNER_IMAGE: 30000,  // Show winner image: 30s
   CONFETTI_DELAY: 3000, // Start confetti 3s after the winner is shown
@@ -58,6 +61,8 @@ const REVEAL_TIMING = {
   COUNTDOWN: 7000,      // Initial countdown: 7s
   INITIALIZATION: 5000, // Loading phase: 5s
 };
+
+const SUSPENSE_TEXTS = ['E o vencedor foi?', 'foi...', 'foi...'];
 
 const FinalReveal = () => {
   const [revealState, setRevealState] = useState<'waiting' | 'initializing' | 'revealing' | 'complete'>('waiting');
@@ -180,6 +185,13 @@ const FinalReveal = () => {
     if (stopAt > totalTeams) {
       setCurrentPhase({ type: 'pause', position: 1, duration: REVEAL_TIMING.PRE_TOP3_PAUSE });
       await wait(REVEAL_TIMING.PRE_TOP3_PAUSE);
+    }
+
+    // Phase 2.5: "E o vencedor foi?..." suspense right before the winner is revealed
+    for (let step = 0; step < SUSPENSE_TEXTS.length; step++) {
+      const duration = REVEAL_TIMING.SUSPENSE_STEP + (step === SUSPENSE_TEXTS.length - 1 ? REVEAL_TIMING.SUSPENSE_HOLD : 0);
+      setCurrentPhase({ type: 'suspense', step, duration });
+      await wait(duration);
     }
 
     // Phase 3: Show Top 3 together (only with enough teams)
@@ -322,7 +334,31 @@ const InitializationScreen = () => {
 };
 
 // Heartbeat Transition Component
-const HeartbeatTransition = () => <RevealHeartbeat />;
+const HeartbeatTransition = () => <RevealHeartbeat label="Preparando o resultado..." />;
+
+// Three 5s pages, one phrase each, pulsating at the center; "foi..." fades in from 1s to 5s
+const SuspenseScreen = ({ step }: { step: number }) => (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="fixed inset-0 z-50 grid place-items-center bg-[color:var(--sb-bg)]"
+  >
+    <motion.h1
+      key={step}
+      initial={{ opacity: step === 0 ? 1 : 0 }}
+      animate={{ opacity: 1, scale: [1, 1.12, 1] }}
+      transition={{
+        opacity: { delay: step === 0 ? 0 : 1, duration: step === 0 ? 0 : 4, ease: "easeIn" },
+        scale: { duration: 1.25, repeat: Infinity, ease: "easeInOut" },
+      }}
+      className="text-center font-black text-[color:var(--sb-accent)]"
+      style={{ fontSize: "12vmin" }}
+    >
+      {SUSPENSE_TEXTS[step]}
+    </motion.h1>
+  </motion.div>
+);
 
 // Top 3 Reveal Component
 const Top3Reveal = ({ teams }: { teams: Team[] }) => {
@@ -484,6 +520,10 @@ const FinalRevealSpectacle = ({
   // Show heartbeat transition for all pauses
   if (currentPhase.type === 'pause') {
     return <HeartbeatTransition />;
+  }
+
+  if (currentPhase.type === 'suspense') {
+    return <SuspenseScreen step={currentPhase.step ?? 0} />;
   }
 
   // Show Top 3 reveal
