@@ -8,6 +8,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import DayReveal from "./pages/DayReveal";
 import Auth from "./pages/Auth";
 import RoleManager from "./pages/RoleManager";
+import NewEventWizard from "./pages/NewEventWizard";
 import Home from "./pages/Home";
 import AdminEventDetail from "./pages/AdminEventDetail";
 import NotFound from "./pages/NotFound";
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/e/:slug/game-reveal" element={<GameReveal />} />
           <Route path="/e/:slug/final-reveal" element={<FinalReveal />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/new" element={<NewEventWizard />} />
           <Route path="/admin/events/:eventId" element={<AdminEventDetail />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin/roles" element={<RoleManager />} />

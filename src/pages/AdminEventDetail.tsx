@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { slugify } from "@/lib/slug";
 import { parseTheme, type EventTheme } from "@/lib/theme";
 import { ThemePicker } from "@/components/ThemePicker";
+import { NEUTRAL_TEAM_COLOR, dominantColor } from "@/lib/teamColor";
 import { ArrowLeft, ExternalLink, Plus, Trash2, Upload } from "lucide-react";
 
 type EventRow = Tables<"events">;
@@ -50,12 +51,13 @@ const AdminEventDetail = () => {
   const [loading, setLoading] = useState(true);
 
   const [teamName, setTeamName] = useState("");
-  const [teamColor, setTeamColor] = useState("#3b82f6");
   const [gameTitle, setGameTitle] = useState("");
   const [gameDescription, setGameDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmSlug, setConfirmSlug] = useState("");
   const [theme, setTheme] = useState<EventTheme | null>(null);
+  const [tab, setTab] = useState("setup");
+  const colorTimer = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const readonly = event?.status === "ended";
 
@@ -164,7 +166,7 @@ const AdminEventDetail = () => {
     const { error } = await supabase.from("teams").insert({
       event_id: event.id,
       name: teamName.trim(),
-      color: teamColor,
+      color: NEUTRAL_TEAM_COLOR,
     });
     setSaving(false);
     if (error) {
@@ -197,16 +199,31 @@ const AdminEventDetail = () => {
       return;
     }
     const { data: urlData } = supabase.storage.from("team-mascots").getPublicUrl(path);
+    // A team still on the neutral color takes the mascot's main color; a color the admin chose is kept
+    const picked = team.color === NEUTRAL_TEAM_COLOR ? await dominantColor(file).catch(() => null) : null;
     const { error } = await supabase
       .from("teams")
-      .update({ avatar_url: urlData.publicUrl })
+      .update({ avatar_url: urlData.publicUrl, ...(picked && { color: picked }) })
       .eq("id", team.id);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Mascote atualizado" });
+    toast({ title: picked ? "Mascote atualizado, cor da equipe ajustada" : "Mascote atualizado" });
     load();
+  };
+
+  const setTeamColorValue = async (team: TeamRow, color: string) => {
+    setTeams((prev) => prev.map((t) => (t.id === team.id ? { ...t, color } : t)));
+    // the picker fires on every drag step; save once it settles
+    clearTimeout(colorTimer.current[team.id]);
+    colorTimer.current[team.id] = setTimeout(async () => {
+      const { error } = await supabase.from("teams").update({ color }).eq("id", team.id);
+      if (error) {
+        toast({ title: "Erro", description: error.message, variant: "destructive" });
+        load();
+      }
+    }, 400);
   };
 
   const addGame = async () => {
@@ -246,6 +263,16 @@ const AdminEventDetail = () => {
       </div>
     );
   }
+
+  // One suggestion at a time: what the admin most likely needs to do next
+  const nextStep =
+    teams.length < 2
+      ? { text: "Adicione pelo menos 2 equipes.", label: "Ir para Times", run: () => setTab("setup") }
+      : event.status === "draft"
+        ? { text: "Tudo certo? Publique para o placar ir ao ar.", label: "Publicar", run: () => setStatus("live") }
+        : event.status === "live"
+          ? { text: "O placar está no ar. Lance os pontos.", label: "Lançar pontos", run: () => setTab("scoring") }
+          : null;
 
   return (
     <div className="min-h-screen bg-gradient-dark p-4">
@@ -346,26 +373,14 @@ const AdminEventDetail = () => {
           </div>
         </div>
 
-        <div className="max-w-md">
-          <Label htmlFor="subtitle">Subtítulo no placar (opcional)</Label>
-          <Input
-            id="subtitle"
-            key={event.subtitle ?? ""}
-            defaultValue={event.subtitle ?? ""}
-            disabled={readonly}
-            placeholder="Sem subtítulo, o título fica maior"
-            onBlur={(e) => saveSubtitle(e.target.value)}
-          />
-        </div>
-
-        {theme && (
-          <Card className="bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle>Cores do placar</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <ThemePicker value={theme} onChange={setTheme} disabled={readonly} eventId={event?.id} />
-              {!readonly && <Button size="sm" onClick={saveTheme}>Salvar cores</Button>}
+        {!readonly && nextStep && (
+          <Card className="border-camp-cyan/40 bg-camp-cyan/10">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Próximo passo</p>
+                <p className="font-medium">{nextStep.text}</p>
+              </div>
+              <Button size="sm" onClick={nextStep.run}>{nextStep.label}</Button>
             </CardContent>
           </Card>
         )}
@@ -378,11 +393,12 @@ const AdminEventDetail = () => {
           </Card>
         )}
 
-        <Tabs defaultValue="setup">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="bg-card/50">
             <TabsTrigger value="setup">Times e jogos</TabsTrigger>
             <TabsTrigger value="scoring">Pontuação</TabsTrigger>
             <TabsTrigger value="reveals">Apurações</TabsTrigger>
+            <TabsTrigger value="look">Aparência</TabsTrigger>
             {event.scoring_mode === "individual" && (
               <TabsTrigger value="participants">Participantes</TabsTrigger>
             )}
@@ -403,13 +419,6 @@ const AdminEventDetail = () => {
                         onChange={(e) => setTeamName(e.target.value)}
                         placeholder="Ex: Azul"
                       />
-                      <Label>Cor</Label>
-                      <Input
-                        type="color"
-                        value={teamColor}
-                        onChange={(e) => setTeamColor(e.target.value)}
-                        className="h-10 w-full"
-                      />
                       <Button onClick={addTeam} disabled={saving || !teamName.trim()}>
                         <Plus className="w-4 h-4 mr-2" />
                         Adicionar time
@@ -422,9 +431,13 @@ const AdminEventDetail = () => {
                         key={team.id}
                         className="flex items-center gap-3 p-3 rounded-lg bg-card/40 border border-border/40"
                       >
-                        <div
-                          className="w-4 h-4 rounded-full shrink-0"
-                          style={{ backgroundColor: team.color }}
+                        <input
+                          type="color"
+                          value={team.color}
+                          disabled={readonly}
+                          title="Cor da equipe"
+                          onChange={(e) => setTeamColorValue(team, e.target.value)}
+                          className="h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
                         />
                         {team.avatar_url ? (
                           <img
@@ -529,6 +542,29 @@ const AdminEventDetail = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="look" className="mt-4">
+            <Card className="bg-card/50 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle>Aparência do placar</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="max-w-md">
+                  <Label htmlFor="subtitle">Frase embaixo do nome (opcional)</Label>
+                  <Input
+                    id="subtitle"
+                    key={event.subtitle ?? ""}
+                    defaultValue={event.subtitle ?? ""}
+                    disabled={readonly}
+                    placeholder="Sem frase, o título fica maior"
+                    onBlur={(e) => saveSubtitle(e.target.value)}
+                  />
+                </div>
+                {theme && <ThemePicker value={theme} onChange={setTheme} disabled={readonly} eventId={event.id} />}
+                {!readonly && <Button size="sm" onClick={saveTheme}>Salvar cores</Button>}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="reveals" className="mt-4">
